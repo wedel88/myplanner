@@ -18,8 +18,8 @@ class ProjectController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'title' => 'required|string|max:255',
-            'description' => 'nullable|string',
+        'name' => 'required|string|max:255', // statt 'title'
+        'description' => 'nullable|string',
         ]);
 
         $project = Project::create($validated);
