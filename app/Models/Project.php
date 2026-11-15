@@ -14,4 +14,8 @@ class Project extends Model
         'name',
         'description',
     ];
+    public function containers()
+    {
+    return $this->hasMany(Container::class);
+    }
 }

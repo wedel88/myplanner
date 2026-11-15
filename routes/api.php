@@ -12,6 +12,14 @@ use App\Http\Controllers\Api\CommentController;
 Route::get('/user', function (Request $request) {
     return $request->user();
 });
+// Route für die Container eines spezifischen Projekts
+Route::get('/projects/{project}/containers', [ProjectController::class, 'getContainersWithTasks']);
+
+// Neue Container für ein Projekt erstellen
+Route::post('/projects/{project}/containers', [ContainerController::class, 'store']);
+
+// Neue Tasks für einen Container erstellen
+Route::post('/containers/{container}/tasks', [TaskController::class, 'store']);
 
 // REST-API-Routen für das Kanban-Board
 Route::apiResource('projects', ProjectController::class);
