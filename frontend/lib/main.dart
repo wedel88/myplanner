@@ -1,6 +1,6 @@
 import 'dart:convert';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:http/http.dart' as http;
 
 const String apiBaseUrl = 'http://127.0.0.1:8000/api';
@@ -78,8 +78,7 @@ class _ProjectListScreenState extends State<ProjectListScreen> {
       if (!mounted) return;
 
       setState(() {
-        errorMessage =
-            'Verbindungsfehler: $e\n(Läuft dein Laravel-Server?)';
+        errorMessage = 'Verbindungsfehler: $e\n(Läuft dein Laravel-Server?)';
         isLoading = false;
       });
     }
@@ -99,16 +98,12 @@ class _ProjectListScreenState extends State<ProjectListScreen> {
             children: [
               TextField(
                 controller: nameController,
-                decoration: const InputDecoration(
-                  labelText: 'Projektname',
-                ),
+                decoration: const InputDecoration(labelText: 'Projektname'),
                 textCapitalization: TextCapitalization.sentences,
               ),
               TextField(
                 controller: descriptionController,
-                decoration: const InputDecoration(
-                  labelText: 'Beschreibung',
-                ),
+                decoration: const InputDecoration(labelText: 'Beschreibung'),
                 textCapitalization: TextCapitalization.sentences,
               ),
             ],
@@ -146,10 +141,7 @@ class _ProjectListScreenState extends State<ProjectListScreen> {
       final response = await http.post(
         url,
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'name': name,
-          'description': description,
-        }),
+        body: jsonEncode({'name': name, 'description': description}),
       );
 
       if (!mounted) return;
@@ -157,9 +149,7 @@ class _ProjectListScreenState extends State<ProjectListScreen> {
       if (response.statusCode == 200 || response.statusCode == 201) {
         await fetchProjects();
       } else {
-        _showMessage(
-          'Fehler beim Speichern: ${response.statusCode}',
-        );
+        _showMessage('Fehler beim Speichern: ${response.statusCode}');
       }
     } catch (e) {
       if (!mounted) return;
@@ -168,9 +158,8 @@ class _ProjectListScreenState extends State<ProjectListScreen> {
   }
 
   void _showMessage(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -207,10 +196,7 @@ class _ProjectListScreenState extends State<ProjectListScreen> {
           child: Text(
             errorMessage,
             textAlign: TextAlign.center,
-            style: const TextStyle(
-              color: Colors.red,
-              fontSize: 16,
-            ),
+            style: const TextStyle(color: Colors.red, fontSize: 16),
           ),
         ),
       );
@@ -222,10 +208,7 @@ class _ProjectListScreenState extends State<ProjectListScreen> {
           'Noch keine Projekte vorhanden.\n'
           'Erstelle eins über den Button unten!',
           textAlign: TextAlign.center,
-          style: TextStyle(
-            fontSize: 16,
-            color: Colors.grey,
-          ),
+          style: TextStyle(fontSize: 16, color: Colors.grey),
         ),
       );
     }
@@ -239,27 +222,23 @@ class _ProjectListScreenState extends State<ProjectListScreen> {
           final project = projects[index] as Map<String, dynamic>;
 
           return Card(
-            margin: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 8,
-            ),
+            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: ListTile(
               title: Text(
                 project['name']?.toString() ?? 'Unbenanntes Projekt',
                 style: const TextStyle(fontWeight: FontWeight.bold),
               ),
               subtitle: Text(
-                project['description']?.toString() ??
-                    'Keine Beschreibung',
+                project['description']?.toString() ?? 'Keine Beschreibung',
               ),
-              trailing: const Icon(
-                Icons.arrow_forward_ios,
-                size: 16,
-              ),
+              trailing: const Icon(Icons.arrow_forward_ios, size: 16),
               onTap: () {
                 final id = project['id'];
+                final parsedId = id == null
+                    ? null
+                    : int.tryParse(id.toString());
 
-                if (id == null) {
+                if (parsedId == null) {
                   _showMessage('Das Projekt besitzt keine gültige ID.');
                   return;
                 }
@@ -268,9 +247,8 @@ class _ProjectListScreenState extends State<ProjectListScreen> {
                   context,
                   MaterialPageRoute(
                     builder: (_) => ProjectDetailScreen(
-                      projectId: int.parse(id.toString()),
-                      projectName:
-                          project['name']?.toString() ?? 'Projekt',
+                      projectId: parsedId,
+                      projectName: project['name']?.toString() ?? 'Projekt',
                     ),
                   ),
                 );
@@ -336,8 +314,7 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
         });
       } else {
         setState(() {
-          errorMessage =
-              'Fehler beim Laden des Boards: ${response.statusCode}';
+          errorMessage = 'Fehler beim Laden des Boards: ${response.statusCode}';
           isLoading = false;
         });
       }
@@ -395,10 +372,7 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
       final response = await http.post(
         url,
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'project_id': widget.projectId,
-          'name': name,
-        }),
+        body: jsonEncode({'project_id': widget.projectId, 'name': name}),
       );
 
       if (!mounted) return;
@@ -436,9 +410,7 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
               ),
               TextField(
                 controller: descriptionController,
-                decoration: const InputDecoration(
-                  labelText: 'Beschreibung',
-                ),
+                decoration: const InputDecoration(labelText: 'Beschreibung'),
                 textCapitalization: TextCapitalization.sentences,
               ),
             ],
@@ -456,11 +428,7 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
                 if (title.isEmpty) return;
 
                 Navigator.pop(dialogContext);
-                await _createTask(
-                  containerId,
-                  title,
-                  description,
-                );
+                await _createTask(containerId, title, description);
               },
               child: const Text('Hinzufügen'),
             ),
@@ -507,10 +475,33 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
     }
   }
 
+  // NEU: Methode zum Verschieben einer Aufgabe in einen anderen Container per API
+  Future<void> _moveTaskToContainer(int taskId, int newContainerId) async {
+    final url = Uri.parse('$apiBaseUrl/tasks/$taskId');
+
+    try {
+      final response = await http.put(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'container_id': newContainerId}),
+      );
+
+      if (!mounted) return;
+
+      if (response.statusCode == 200) {
+        await fetchBoardData(); // Board nach erfolgreichem Verschieben neu laden
+      } else {
+        _showMessage('Fehler beim Verschieben: ${response.statusCode}');
+      }
+    } catch (e) {
+      if (!mounted) return;
+      _showMessage('Verbindungsfehler beim Verschieben: $e');
+    }
+  }
+
   void _showMessage(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -571,70 +562,119 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
         final tasks = (container['tasks'] as List<dynamic>?) ?? [];
         final containerId = int.parse(container['id'].toString());
 
-        return Container(
-          width: 300,
-          margin: const EdgeInsets.all(8),
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: Colors.grey.shade200,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        // NEU: Jede Spalte wird in ein DragTarget eingepackt, um Aufgaben anzunehmen
+        return DragTarget<Map<String, dynamic>>(
+          onAccept: (receivedTask) {
+            final taskId = receivedTask['id'];
+            if (taskId != null) {
+              _moveTaskToContainer(int.parse(taskId.toString()), containerId);
+            }
+          },
+          builder: (context, candidateData, rejectedData) {
+            return Container(
+              width: 300,
+              margin: const EdgeInsets.all(8),
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                // Visuelles Feedback: Spalte färbt sich leicht blau, wenn man eine Aufgabe drüber hält
+                color: candidateData.isNotEmpty
+                    ? Colors.blue.shade100
+                    : Colors.grey.shade200,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.all(8),
-                      child: Text(
-                        container['name']?.toString() ?? 'Spalte',
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Padding(
+                          padding: const EdgeInsets.all(8),
+                          child: Text(
+                            container['name']?.toString() ?? 'Spalte',
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                         ),
                       ),
-                    ),
+                      IconButton(
+                        tooltip: 'Aufgabe hinzufügen',
+                        icon: const Icon(Icons.add_circle_outline),
+                        onPressed: () => _showCreateTaskDialog(containerId),
+                      ),
+                    ],
                   ),
-                  IconButton(
-                    tooltip: 'Aufgabe hinzufügen',
-                    icon: const Icon(Icons.add_circle_outline),
-                    onPressed: () =>
-                        _showCreateTaskDialog(containerId),
+                  const Divider(),
+                  Expanded(
+                    child: tasks.isEmpty
+                        ? const Center(
+                            child: Text(
+                              'Noch keine Aufgaben',
+                              style: TextStyle(color: Colors.grey),
+                            ),
+                          )
+                        : ListView.builder(
+                            itemCount: tasks.length,
+                            itemBuilder: (context, taskIndex) {
+                              final task =
+                                  tasks[taskIndex] as Map<String, dynamic>;
+
+                              // NEU: Jede Task-Karte ist jetzt ein Draggable-Widget
+                              return Draggable<Map<String, dynamic>>(
+                                data: task,
+                                dragAnchorStrategy: pointerDragAnchorStrategy,
+                                // Wie die Karte aussieht, während man sie mit der Maus zieht
+                                feedback: Material(
+                                  elevation: 4.0,
+                                  child: Container(
+                                    width: 250,
+                                    padding: const EdgeInsets.all(12),
+                                    color: Colors.blue,
+                                    child: Text(
+                                      task['title']?.toString() ?? 'Aufgabe',
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                // Wie das Original an seinem Platz aussieht, während es gezogen wird
+                                childWhenDragging: Opacity(
+                                  opacity: 0.5,
+                                  child: Card(
+                                    child: ListTile(
+                                      title: Text(
+                                        task['title']?.toString() ?? 'Aufgabe',
+                                      ),
+                                      subtitle: Text(
+                                        task['description']?.toString() ?? '',
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                // Das normale Aussehen der Karte im Ruhezustand
+                                child: Card(
+                                  child: ListTile(
+                                    title: Text(
+                                      task['title']?.toString() ?? 'Aufgabe',
+                                    ),
+                                    subtitle: Text(
+                                      task['description']?.toString() ?? '',
+                                    ),
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
                   ),
                 ],
               ),
-              const Divider(),
-              Expanded(
-                child: tasks.isEmpty
-                    ? const Center(
-                        child: Text(
-                          'Noch keine Aufgaben',
-                          style: TextStyle(color: Colors.grey),
-                        ),
-                      )
-                    : ListView.builder(
-                        itemCount: tasks.length,
-                        itemBuilder: (context, taskIndex) {
-                          final task =
-                              tasks[taskIndex] as Map<String, dynamic>;
-
-                          return Card(
-                            child: ListTile(
-                              title: Text(
-                                task['title']?.toString() ?? 'Aufgabe',
-                              ),
-                              subtitle: Text(
-                                task['description']?.toString() ?? '',
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-              ),
-            ],
-          ),
+            );
+          },
         );
       },
     );

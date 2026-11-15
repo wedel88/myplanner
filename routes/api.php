@@ -21,6 +21,9 @@ Route::post('/projects/{project}/containers', [ContainerController::class, 'stor
 // Neue Tasks für einen Container erstellen
 Route::post('/containers/{container}/tasks', [TaskController::class, 'store']);
 
+//update route 
+Route::put('/tasks/{task}', [TaskController::class, 'update']);
+
 // REST-API-Routen für das Kanban-Board
 Route::apiResource('projects', ProjectController::class);
 Route::apiResource('containers', ContainerController::class);
