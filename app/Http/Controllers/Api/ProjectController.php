@@ -45,12 +45,9 @@ class ProjectController extends Controller
     }
     public function getContainersWithTasks(Project $project)
 {
-    // Hier fügen wir die Sortierung nach der Position hinzu!
-    return response()->json(
-        $project->containers()
-            ->orderBy('position', 'asc')
-            ->with('tasks')
-            ->get()
-    );
+    // HIER muss 'tasks.subtasks' mitgeladen werden:
+    $containers = $project->containers()->with('tasks.subtasks')->orderBy('position')->get();
+
+    return response()->json($containers, 200);
 }
 }

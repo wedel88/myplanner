@@ -9,17 +9,16 @@ use Illuminate\Http\Request;
 
 class ContainerController extends Controller
 {
-    // Alle Container eines Projekts auflisten
-    public function index(Request $request)
+ public function index(Request $request)
     {
-        // Man kann optional nach project_id filtern: /api/containers?project_id=1
         $query = Container::query();
 
         if ($request->has('project_id')) {
-            $query->where('project_id', $request->project_id);
+        $query->where('project_id', $request->project_id);
         }
 
-        return response()->json($query->with('tasks')->orderBy('position')->get(), 200);
+    // WICHTIG: Hier muss 'tasks.subtasks' stehen!
+    return response()->json($query->with('tasks.subtasks')->orderBy('position')->get(), 200);
     }
 
     // Einen neuen Container (Spalte) erstellen

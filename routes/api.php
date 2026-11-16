@@ -38,3 +38,7 @@ Route::apiResource('containers', ContainerController::class);
 Route::apiResource('tasks', TaskController::class);
 Route::apiResource('subtasks', SubtaskController::class);
 Route::apiResource('comments', CommentController::class);
+//Subtasks
+Route::post('/subtasks', [SubtaskController::class, 'store']);
+Route::put('/subtasks/{subtask}', [SubtaskController::class, 'update']);
+Route::delete('/subtasks/{subtask}', [SubtaskController::class, 'destroy']);
