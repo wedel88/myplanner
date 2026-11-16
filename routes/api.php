@@ -24,6 +24,14 @@ Route::post('/containers/{container}/tasks', [TaskController::class, 'store']);
 //update route 
 Route::put('/tasks/{task}', [TaskController::class, 'update']);
 
+// Task löschen
+Route::delete('/tasks/{task}', [TaskController::class, 'destroy']);
+
+// Container löschen
+Route::delete('/containers/{container}', [ContainerController::class, 'destroy']);
+
+Route::put('/containers/{container}/position', [ContainerController::class, 'updatePosition']);
+
 // REST-API-Routen für das Kanban-Board
 Route::apiResource('projects', ProjectController::class);
 Route::apiResource('containers', ContainerController::class);

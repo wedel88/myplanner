@@ -67,4 +67,17 @@ class ContainerController extends Controller
         $container->delete();
         return response()->json(['message' => 'Container gelöscht'], 200);
     }
+    public function updatePosition(Request $request, $id)
+{
+    $container = Container::findOrFail($id);
+    
+    $validated = $request->validate([
+        'position' => 'required|integer',
+    ]);
+
+    $container->position = $validated['position'];
+    $container->save();
+
+    return response()->json(['message' => 'Position aktualisiert'], 200);
+}
 }

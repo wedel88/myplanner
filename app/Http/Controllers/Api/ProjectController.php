@@ -44,8 +44,13 @@ class ProjectController extends Controller
         return response()->json(['message' => 'Projekt gelöscht'], 200);
     }
     public function getContainersWithTasks(Project $project)
-    {
-        // Lädt alle Container des Projekts inklusive der dazugehörigen Tasks über die Eloquent-Relation
-        return response()->json($project->containers()->with('tasks')->get());
-    }
+{
+    // Hier fügen wir die Sortierung nach der Position hinzu!
+    return response()->json(
+        $project->containers()
+            ->orderBy('position', 'asc')
+            ->with('tasks')
+            ->get()
+    );
+}
 }

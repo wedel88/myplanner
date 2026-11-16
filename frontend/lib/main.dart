@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'package:material_ui/material_ui.dart';
 import 'package:http/http.dart' as http;
 
+import 'dart:developer' as dev;
+
 const String apiBaseUrl = 'http://127.0.0.1:8000/api';
 
 void main() {
@@ -282,6 +284,7 @@ class ProjectDetailScreen extends StatefulWidget {
 class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
   List<dynamic> containers = [];
   bool isLoading = true;
+  bool _isReorderMode = false; // Steuer-Flag für den Spalten-Ordnungs-Modus
   String errorMessage = '';
 
   @override
@@ -325,6 +328,93 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
         errorMessage = 'Verbindungsfehler: $e';
         isLoading = false;
       });
+    }
+  }
+
+  void _showEditTaskDialog(
+    int taskId,
+    String currentTitle,
+    String currentDesc,
+  ) {
+    final titleController = TextEditingController(text: currentTitle);
+    final descriptionController = TextEditingController(text: currentDesc);
+
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Aufgabe bearbeiten'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: titleController,
+                decoration: const InputDecoration(labelText: 'Titel'),
+                textCapitalization: TextCapitalization.sentences,
+              ),
+              TextField(
+                controller: descriptionController,
+                decoration: const InputDecoration(labelText: 'Beschreibung'),
+                textCapitalization: TextCapitalization.sentences,
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Abbrechen'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                final newTitle = titleController.text.trim();
+                final newDesc = descriptionController.text.trim();
+
+                if (newTitle.isEmpty) return;
+
+                Navigator.pop(dialogContext);
+                await _updateTask(taskId, newTitle, newDesc);
+              },
+              child: const Text('Speichern'),
+            ),
+          ],
+        );
+      },
+    ).then((_) {
+      titleController.dispose();
+      descriptionController.dispose();
+    });
+  }
+
+  Future<void> _updateContainerPosition(
+    int containerId,
+    int newPosition,
+  ) async {
+    final url = Uri.parse('$apiBaseUrl/containers/$containerId/position');
+
+    // Strukturierter Log-Aufruf
+    dev.log(
+      'Sende Position: Container $containerId -> Position $newPosition',
+      name: 'ContainerAPI',
+    );
+
+    try {
+      final response = await http.put(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'position': newPosition}),
+      );
+
+      dev.log(
+        'Antwort: ${response.statusCode} - ${response.body}',
+        name: 'ContainerAPI',
+      );
+    } catch (e, stackTrace) {
+      dev.log(
+        'Fehler beim Position speichern',
+        name: 'ContainerAPI',
+        error: e,
+        stackTrace: stackTrace,
+      );
     }
   }
 
@@ -384,6 +474,167 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
           'Fehler beim Erstellen der Spalte: ${response.statusCode}\n'
           '${response.body}',
         );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      _showMessage('Verbindungsfehler: $e');
+    }
+  }
+
+  // Spalte bearbeiten Dialog
+  void _showEditContainerDialog(int containerId, String currentName) {
+    final nameController = TextEditingController(text: currentName);
+
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Spalte bearbeiten'),
+          content: TextField(
+            controller: nameController,
+            decoration: const InputDecoration(labelText: 'Spaltenname'),
+            textCapitalization: TextCapitalization.sentences,
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Abbrechen'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                final newName = nameController.text.trim();
+                if (newName.isEmpty) return;
+
+                Navigator.pop(dialogContext);
+                await _updateContainer(containerId, newName);
+              },
+              child: const Text('Speichern'),
+            ),
+          ],
+        );
+      },
+    ).then((_) => nameController.dispose());
+  }
+
+  Future<void> _updateContainer(int containerId, String name) async {
+    final url = Uri.parse('$apiBaseUrl/containers/$containerId');
+
+    try {
+      final response = await http.put(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'name': name}),
+      );
+
+      if (!mounted) return;
+
+      if (response.statusCode == 200 || response.statusCode == 204) {
+        await fetchBoardData();
+        _showMessage('Spalte aktualisiert');
+      } else {
+        _showMessage('Fehler beim Aktualisieren: ${response.statusCode}');
+      }
+    } catch (e) {
+      if (!mounted) return;
+      _showMessage('Verbindungsfehler: $e');
+    }
+  }
+
+  void _confirmDeleteContainer(int containerId, String containerName) {
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Spalte löschen?'),
+          content: Text(
+            'Möchtest du "$containerName" und alle darin enthaltenen Aufgaben wirklich löschen?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Abbrechen'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+              onPressed: () async {
+                Navigator.pop(dialogContext);
+                await _deleteContainer(containerId);
+              },
+              child: const Text(
+                'Löschen',
+                style: TextStyle(color: Colors.white),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _deleteContainer(int containerId) async {
+    final url = Uri.parse('$apiBaseUrl/containers/$containerId');
+
+    try {
+      final response = await http.delete(url);
+
+      if (!mounted) return;
+
+      if (response.statusCode == 200 || response.statusCode == 204) {
+        await fetchBoardData();
+        _showMessage('Spalte gelöscht');
+      } else {
+        _showMessage('Fehler beim Löschen: ${response.statusCode}');
+      }
+    } catch (e) {
+      if (!mounted) return;
+      _showMessage('Verbindungsfehler: $e');
+    }
+  }
+
+  void _confirmDeleteTask(int taskId, String taskTitle) {
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Aufgabe löschen?'),
+          content: Text(
+            'Möchtest du "$taskTitle" wirklich unwiderruflich löschen?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Abbrechen'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+              onPressed: () async {
+                Navigator.pop(dialogContext);
+                await _deleteTask(taskId);
+              },
+              child: const Text(
+                'Löschen',
+                style: TextStyle(color: Colors.white),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _deleteTask(int taskId) async {
+    final url = Uri.parse('$apiBaseUrl/tasks/$taskId');
+
+    try {
+      final response = await http.delete(url);
+
+      if (!mounted) return;
+
+      if (response.statusCode == 200 || response.statusCode == 204) {
+        await fetchBoardData();
+        _showMessage('Aufgabe gelöscht');
+      } else {
+        _showMessage('Fehler beim Löschen: ${response.statusCode}');
       }
     } catch (e) {
       if (!mounted) return;
@@ -475,7 +726,6 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
     }
   }
 
-  // NEU: Methode zum Verschieben einer Aufgabe in einen anderen Container per API
   Future<void> _moveTaskToContainer(int taskId, int newContainerId) async {
     final url = Uri.parse('$apiBaseUrl/tasks/$taskId');
 
@@ -488,8 +738,10 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
 
       if (!mounted) return;
 
-      if (response.statusCode == 200) {
-        await fetchBoardData(); // Board nach erfolgreichem Verschieben neu laden
+      if (response.statusCode == 200 ||
+          response.statusCode == 201 ||
+          response.statusCode == 204) {
+        await fetchBoardData();
       } else {
         _showMessage('Fehler beim Verschieben: ${response.statusCode}');
       }
@@ -510,6 +762,21 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
       appBar: AppBar(
         title: Text(widget.projectName),
         actions: [
+          // Button zum Umschalten des Ordnungs-Modus
+          IconButton(
+            tooltip: _isReorderMode
+                ? 'Ordnungs-Modus beenden'
+                : 'Spalten ordnen',
+            icon: Icon(
+              _isReorderMode ? Icons.done : Icons.swap_horiz,
+              color: _isReorderMode ? Colors.green : null,
+            ),
+            onPressed: () {
+              setState(() {
+                _isReorderMode = !_isReorderMode;
+              });
+            },
+          ),
           IconButton(
             tooltip: 'Aktualisieren',
             icon: const Icon(Icons.refresh),
@@ -521,6 +788,31 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
     );
   }
 
+  Future<void> _updateTask(int taskId, String title, String description) async {
+    final url = Uri.parse('$apiBaseUrl/tasks/$taskId');
+
+    try {
+      final response = await http.put(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'title': title, 'description': description}),
+      );
+
+      if (!mounted) return;
+
+      if (response.statusCode == 200 || response.statusCode == 204) {
+        await fetchBoardData();
+        _showMessage('Aufgabe aktualisiert');
+      } else {
+        _showMessage('Fehler beim Aktualisieren: ${response.statusCode}');
+      }
+    } catch (e) {
+      if (!mounted) return;
+      _showMessage('Verbindungsfehler: $e');
+    }
+  }
+
+  // Einzige, saubere _buildBoardBody Methode
   Widget _buildBoardBody() {
     if (isLoading) {
       return const Center(child: CircularProgressIndicator());
@@ -539,142 +831,257 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
       );
     }
 
-    return ListView.builder(
-      scrollDirection: Axis.horizontal,
-      padding: const EdgeInsets.all(8),
-      itemCount: containers.length + 1,
-      itemBuilder: (context, index) {
-        // Das letzte Element ist der Button zum Hinzufügen einer Spalte.
-        if (index == containers.length) {
-          return SizedBox(
-            width: 220,
-            child: Center(
-              child: ElevatedButton.icon(
-                onPressed: _showCreateContainerDialog,
-                icon: const Icon(Icons.add),
-                label: const Text('Spalte hinzufügen'),
-              ),
-            ),
-          );
+    if (_isReorderMode) {
+      return ReorderableListView.builder(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.all(8),
+        itemCount: containers.length + 1,
+        onReorder: (int oldIndex, int newIndex) async {
+          if (oldIndex < newIndex) newIndex -= 1;
+          if (oldIndex >= containers.length || newIndex >= containers.length) {
+            return;
+          }
+
+          setState(() {
+            final item = containers.removeAt(oldIndex);
+            containers.insert(newIndex, item);
+          });
+
+          final container = containers[newIndex] as Map<String, dynamic>;
+          final containerId = int.tryParse(container['id']?.toString() ?? '');
+          if (containerId != null) {
+            await _updateContainerPosition(containerId, newIndex);
+          }
+        },
+        itemBuilder: (context, index) {
+          return _buildContainerItem(index, isReorderable: true);
+        },
+      );
+    } else {
+      return ListView.builder(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.all(8),
+        itemCount: containers.length + 1,
+        itemBuilder: (context, index) {
+          return _buildContainerItem(index, isReorderable: false);
+        },
+      );
+    }
+  }
+
+  // Hilfsmethode zur Erstellung einer Spalte (wiederverwendbar für Normal- & Reorder-Modus)
+  Widget _buildContainerItem(int index, {required bool isReorderable}) {
+    if (index == containers.length) {
+      return SizedBox(
+        key: const ValueKey('add_container_button'),
+        width: 220,
+        child: Center(
+          child: ElevatedButton.icon(
+            onPressed: _showCreateContainerDialog,
+            icon: const Icon(Icons.add),
+            label: const Text('Spalte hinzufügen'),
+          ),
+        ),
+      );
+    }
+
+    final container = containers[index] as Map<String, dynamic>;
+    final tasks = (container['tasks'] as List<dynamic>?) ?? [];
+    final containerId = int.tryParse(container['id']?.toString() ?? '') ?? 0;
+    final containerName = container['name']?.toString() ?? 'Spalte';
+
+    return DragTarget<Map<String, dynamic>>(
+      key: ValueKey('container_$containerId'),
+      onAccept: (receivedTask) {
+        final rawId = receivedTask['id'];
+        final taskId = rawId != null ? int.tryParse(rawId.toString()) : null;
+        if (taskId != null && containerId > 0) {
+          _moveTaskToContainer(taskId, containerId);
         }
-
-        final container = containers[index] as Map<String, dynamic>;
-        final tasks = (container['tasks'] as List<dynamic>?) ?? [];
-        final containerId = int.parse(container['id'].toString());
-
-        // NEU: Jede Spalte wird in ein DragTarget eingepackt, um Aufgaben anzunehmen
-        return DragTarget<Map<String, dynamic>>(
-          onAccept: (receivedTask) {
-            final taskId = receivedTask['id'];
-            if (taskId != null) {
-              _moveTaskToContainer(int.parse(taskId.toString()), containerId);
-            }
-          },
-          builder: (context, candidateData, rejectedData) {
-            return Container(
-              width: 300,
-              margin: const EdgeInsets.all(8),
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                // Visuelles Feedback: Spalte färbt sich leicht blau, wenn man eine Aufgabe drüber hält
-                color: candidateData.isNotEmpty
-                    ? Colors.blue.shade100
-                    : Colors.grey.shade200,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+      },
+      builder: (context, candidateData, rejectedData) {
+        return Container(
+          width: 300,
+          margin: const EdgeInsets.all(8),
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: candidateData.isNotEmpty
+                ? Colors.blue.shade100
+                : Colors.grey.shade200,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Spalten-Header
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Expanded(
-                        child: Padding(
-                          padding: const EdgeInsets.all(8),
-                          child: Text(
-                            container['name']?.toString() ?? 'Spalte',
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
+                  // Wenn der Ordnungs-Modus an ist, zeigen wir den Zieh-Griff
+                  if (isReorderable)
+                    ReorderableDragStartListener(
+                      index: index,
+                      child: const Padding(
+                        padding: EdgeInsets.only(right: 6.0),
+                        child: Icon(Icons.drag_indicator, color: Colors.grey),
+                      ),
+                    ),
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.all(4.0),
+                      child: Text(
+                        containerName,
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
-                      IconButton(
-                        tooltip: 'Aufgabe hinzufügen',
-                        icon: const Icon(Icons.add_circle_outline),
-                        onPressed: () => _showCreateTaskDialog(containerId),
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: 'Aufgabe hinzufügen',
+                    icon: const Icon(Icons.add_circle_outline),
+                    onPressed: () => _showCreateTaskDialog(containerId),
+                  ),
+                  PopupMenuButton<String>(
+                    icon: const Icon(Icons.more_vert),
+                    onSelected: (value) {
+                      if (value == 'edit') {
+                        _showEditContainerDialog(containerId, containerName);
+                      } else if (value == 'delete') {
+                        _confirmDeleteContainer(containerId, containerName);
+                      }
+                    },
+                    itemBuilder: (BuildContext context) => [
+                      const PopupMenuItem<String>(
+                        value: 'edit',
+                        child: Row(
+                          children: [
+                            Icon(Icons.edit, size: 18, color: Colors.blue),
+                            SizedBox(width: 8),
+                            Text('Bearbeiten'),
+                          ],
+                        ),
+                      ),
+                      const PopupMenuItem<String>(
+                        value: 'delete',
+                        child: Row(
+                          children: [
+                            Icon(Icons.delete, size: 18, color: Colors.red),
+                            SizedBox(width: 8),
+                            Text('Löschen'),
+                          ],
+                        ),
                       ),
                     ],
                   ),
-                  const Divider(),
-                  Expanded(
-                    child: tasks.isEmpty
-                        ? const Center(
-                            child: Text(
-                              'Noch keine Aufgaben',
-                              style: TextStyle(color: Colors.grey),
-                            ),
-                          )
-                        : ListView.builder(
-                            itemCount: tasks.length,
-                            itemBuilder: (context, taskIndex) {
-                              final task =
-                                  tasks[taskIndex] as Map<String, dynamic>;
-
-                              // NEU: Jede Task-Karte ist jetzt ein Draggable-Widget
-                              return Draggable<Map<String, dynamic>>(
-                                data: task,
-                                dragAnchorStrategy: pointerDragAnchorStrategy,
-                                // Wie die Karte aussieht, während man sie mit der Maus zieht
-                                feedback: Material(
-                                  elevation: 4.0,
-                                  child: Container(
-                                    width: 250,
-                                    padding: const EdgeInsets.all(12),
-                                    color: Colors.blue,
-                                    child: Text(
-                                      task['title']?.toString() ?? 'Aufgabe',
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                // Wie das Original an seinem Platz aussieht, während es gezogen wird
-                                childWhenDragging: Opacity(
-                                  opacity: 0.5,
-                                  child: Card(
-                                    child: ListTile(
-                                      title: Text(
-                                        task['title']?.toString() ?? 'Aufgabe',
-                                      ),
-                                      subtitle: Text(
-                                        task['description']?.toString() ?? '',
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                // Das normale Aussehen der Karte im Ruhezustand
-                                child: Card(
-                                  child: ListTile(
-                                    title: Text(
-                                      task['title']?.toString() ?? 'Aufgabe',
-                                    ),
-                                    subtitle: Text(
-                                      task['description']?.toString() ?? '',
-                                    ),
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
-                  ),
                 ],
               ),
-            );
-          },
+              const Divider(),
+              Expanded(
+                child: tasks.isEmpty
+                    ? const Center(
+                        child: Text(
+                          'Noch keine Aufgaben',
+                          style: TextStyle(color: Colors.grey),
+                        ),
+                      )
+                    : ListView.builder(
+                        itemCount: tasks.length,
+                        itemBuilder: (context, taskIndex) {
+                          final task = tasks[taskIndex] as Map<String, dynamic>;
+                          final taskId =
+                              int.tryParse(task['id']?.toString() ?? '') ?? 0;
+                          final taskTitle =
+                              task['title']?.toString() ?? 'Aufgabe';
+                          final taskDesc =
+                              task['description']?.toString() ?? '';
+
+                          return Draggable<Map<String, dynamic>>(
+                            data: task,
+                            dragAnchorStrategy: pointerDragAnchorStrategy,
+                            feedback: Material(
+                              elevation: 4.0,
+                              child: Container(
+                                width: 250,
+                                padding: const EdgeInsets.all(12),
+                                color: Colors.blue,
+                                child: Text(
+                                  taskTitle,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            childWhenDragging: Opacity(
+                              opacity: 0.5,
+                              child: Card(
+                                child: ListTile(
+                                  title: Text(taskTitle),
+                                  subtitle: Text(taskDesc),
+                                ),
+                              ),
+                            ),
+                            child: Card(
+                              child: ListTile(
+                                title: Text(taskTitle),
+                                subtitle: Text(taskDesc),
+                                // NEU: Das Drei-Punkte-Menü statt des direkten Mülleimer-Icons
+                                trailing: PopupMenuButton<String>(
+                                  icon: const Icon(Icons.more_vert, size: 20),
+                                  onSelected: (value) {
+                                    if (value == 'edit') {
+                                      // Hier rufen wir gleich den Bearbeiten-Dialog für die Aufgabe auf
+                                      _showEditTaskDialog(
+                                        taskId,
+                                        taskTitle,
+                                        taskDesc,
+                                      );
+                                    } else if (value == 'delete') {
+                                      _confirmDeleteTask(taskId, taskTitle);
+                                    }
+                                  },
+                                  itemBuilder: (BuildContext context) => [
+                                    const PopupMenuItem<String>(
+                                      value: 'edit',
+                                      child: Row(
+                                        children: [
+                                          Icon(
+                                            Icons.edit,
+                                            size: 18,
+                                            color: Colors.blue,
+                                          ),
+                                          SizedBox(width: 8),
+                                          Text('Bearbeiten'),
+                                        ],
+                                      ),
+                                    ),
+                                    const PopupMenuItem<String>(
+                                      value: 'delete',
+                                      child: Row(
+                                        children: [
+                                          Icon(
+                                            Icons.delete,
+                                            size: 18,
+                                            color: Colors.red,
+                                          ),
+                                          SizedBox(width: 8),
+                                          Text('Löschen'),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+              ),
+            ],
+          ),
         );
       },
     );
