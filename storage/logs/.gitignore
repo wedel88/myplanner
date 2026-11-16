@@ -1,2 +1,4 @@
 *
 !.gitignore
+frontend/build/
+.dart_tool/
