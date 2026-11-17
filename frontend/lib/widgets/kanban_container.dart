@@ -10,6 +10,7 @@ class KanbanContainerWidget extends StatelessWidget {
   final Function(int containerId) onCreateTask;
   final Function(int containerId, String name) onEditContainer;
   final Function(int containerId, String name) onDeleteContainer;
+  final Function(Map<String, dynamic> task) onManageSubtasks; // <--- HIER NEU
 
   // Weitergeleitete Callbacks für die Tasks
   final Function(int taskId, String title, String desc) onEditTask;
@@ -30,6 +31,7 @@ class KanbanContainerWidget extends StatelessWidget {
     required this.onDeleteTask,
     required this.onAddSubtask,
     required this.onToggleSubtask,
+    required this.onManageSubtasks, // <--- HIER NEU
   });
 
   @override
@@ -138,6 +140,7 @@ class KanbanContainerWidget extends StatelessWidget {
                             onDelete: onDeleteTask,
                             onAddSubtask: onAddSubtask,
                             onToggleSubtask: onToggleSubtask,
+                            onManageSubtasks: onManageSubtasks,
                           );
                         },
                       ),

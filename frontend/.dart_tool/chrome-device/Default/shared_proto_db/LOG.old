@@ -1,20 +1,14 @@
-2026/11/16-18:20:28.500 463c Reusing MANIFEST C:\Users\JAKUBP~1\AppData\Local\Temp\flutter_tools.a66f7a8d\flutter_tools_chrome_device.a03bd71f\Default\shared_proto_db/MANIFEST-000001
-2026/11/16-18:20:28.501 463c Recovering log #16
-2026/11/16-18:20:28.502 463c Reusing old log C:\Users\JAKUBP~1\AppData\Local\Temp\flutter_tools.a66f7a8d\flutter_tools_chrome_device.a03bd71f\Default\shared_proto_db/000016.log 
-2026/11/16-18:20:28.502 463c Delete type=0 #3
-2026/11/16-18:20:28.503 463c Delete type=0 #4
-2026/11/16-18:20:28.503 463c Delete type=0 #7
-2026/11/16-18:20:28.503 463c Delete type=0 #10
-2026/11/16-18:20:28.503 463c Delete type=0 #13
-2026/11/16-18:20:40.706 2bf4 Level-0 table #20: started
-2026/11/16-18:20:40.713 2bf4 Level-0 table #20: 138185 bytes OK
-2026/11/16-18:20:40.720 2bf4 Delete type=0 #16
-2026/11/16-18:20:40.720 2bf4 Compacting 4@0 + 1@1 files
-2026/11/16-18:20:40.730 2bf4 Generated table #21@0: 783 keys, 121487 bytes
-2026/11/16-18:20:40.730 2bf4 Compacted 4@0 + 1@1 files => 121487 bytes
-2026/11/16-18:20:40.736 2bf4 compacted to: files[ 0 1 1 0 0 0 0 ]
-2026/11/16-18:20:40.737 2bf4 Delete type=2 #8
-2026/11/16-18:20:40.737 2bf4 Delete type=2 #11
-2026/11/16-18:20:40.737 2bf4 Delete type=2 #14
-2026/11/16-18:20:40.737 2bf4 Delete type=2 #17
-2026/11/16-18:20:40.737 2bf4 Delete type=2 #20
+2026/11/17-11:40:53.627 5d20 Reusing MANIFEST C:\Users\JAKUBP~1\AppData\Local\Temp\flutter_tools.ca83ea6b\flutter_tools_chrome_device.d10830d6\Default\shared_proto_db/MANIFEST-000001
+2026/11/17-11:40:53.628 5d20 Recovering log #23
+2026/11/17-11:40:53.629 5d20 Reusing old log C:\Users\JAKUBP~1\AppData\Local\Temp\flutter_tools.ca83ea6b\flutter_tools_chrome_device.d10830d6\Default\shared_proto_db/000023.log 
+2026/11/17-11:40:53.629 5d20 Delete type=0 #3
+2026/11/17-11:40:53.629 5d20 Delete type=0 #4
+2026/11/17-11:40:53.629 5d20 Delete type=0 #7
+2026/11/17-11:40:53.629 5d20 Delete type=2 #8
+2026/11/17-11:40:53.629 5d20 Delete type=0 #10
+2026/11/17-11:40:53.629 5d20 Delete type=2 #11
+2026/11/17-11:40:53.629 5d20 Delete type=0 #13
+2026/11/17-11:40:53.629 5d20 Delete type=2 #14
+2026/11/17-11:40:53.630 5d20 Delete type=0 #16
+2026/11/17-11:40:53.630 5d20 Delete type=2 #17
+2026/11/17-11:40:53.630 5d20 Delete type=0 #19

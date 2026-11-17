@@ -584,6 +584,194 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
     }
   }
 
+  // Teilpunkt umbenennen
+  Future<void> _updateSubtaskTitle(int subtaskId, String newTitle) async {
+    final url = Uri.parse('$apiBaseUrl/subtasks/$subtaskId');
+
+    try {
+      final response = await http.put(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'title': newTitle}),
+      );
+
+      if (!mounted) return;
+
+      if (response.statusCode == 200 || response.statusCode == 204) {
+        await fetchBoardData();
+        _showMessage('Teilpunkt aktualisiert');
+      } else {
+        _showMessage('Fehler beim Aktualisieren: ${response.statusCode}');
+      }
+    } catch (e) {
+      if (!mounted) return;
+      _showMessage('Verbindungsfehler: $e');
+    }
+  }
+
+  // Teilpunkt löschen
+  Future<void> _deleteSubtask(int subtaskId) async {
+    final url = Uri.parse('$apiBaseUrl/subtasks/$subtaskId');
+
+    try {
+      final response = await http.delete(url);
+
+      if (!mounted) return;
+
+      if (response.statusCode == 200 || response.statusCode == 204) {
+        await fetchBoardData();
+        _showMessage('Teilpunkt gelöscht');
+      } else {
+        _showMessage('Fehler beim Löschen: ${response.statusCode}');
+      }
+    } catch (e) {
+      if (!mounted) return;
+      _showMessage('Verbindungsfehler: $e');
+    }
+  }
+
+  void _showManageSubtasksDialog(Map<String, dynamic> task) {
+    // Wir holen uns eine lokale Kopie der Subtasks, damit wir sie im Dialog live bearbeiten/löschen können
+    List<dynamic> subtasks = List.from(task['subtasks'] ?? []);
+    final taskTitle = task['title']?.toString() ?? 'Aufgabe';
+
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setStateDialog) {
+            return AlertDialog(
+              title: Text('Teilpunkte verwalten\n("$taskTitle")'),
+              content: SizedBox(
+                width: 300,
+                height: subtasks.isEmpty
+                    ? 50.0
+                    : (subtasks.length * 60).clamp(50, 300).toDouble(),
+                child: subtasks.isEmpty
+                    ? const Center(child: Text('Keine Teilpunkte vorhanden.'))
+                    : ListView.builder(
+                        shrinkWrap: true,
+                        itemCount: subtasks.length,
+                        itemBuilder: (context, index) {
+                          final subtask = subtasks[index];
+                          final subId =
+                              int.tryParse(subtask['id']?.toString() ?? '') ??
+                              0;
+                          final subTitle = subtask['title']?.toString() ?? '';
+
+                          return ListTile(
+                            contentPadding: EdgeInsets.zero,
+                            title: Text(
+                              subTitle,
+                              style: const TextStyle(fontSize: 14),
+                            ),
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                IconButton(
+                                  icon: const Icon(
+                                    Icons.edit,
+                                    size: 18,
+                                    color: Colors.blue,
+                                  ),
+                                  onPressed: () {
+                                    _showEditSubtaskDialog(subId, subTitle, (
+                                      updatedTitle,
+                                    ) async {
+                                      await _updateSubtaskTitle(
+                                        subId,
+                                        updatedTitle,
+                                      );
+                                      setStateDialog(() {
+                                        subtask['title'] = updatedTitle;
+                                      });
+                                    });
+                                  },
+                                ),
+                                IconButton(
+                                  icon: const Icon(
+                                    Icons.delete,
+                                    size: 18,
+                                    color: Colors.red,
+                                  ),
+                                  onPressed: () async {
+                                    await _deleteSubtask(subId);
+                                    setStateDialog(() {
+                                      subtasks.removeWhere(
+                                        (s) =>
+                                            int.tryParse(
+                                              s['id']?.toString() ?? '',
+                                            ) ==
+                                            subId,
+                                      );
+                                    });
+                                    await fetchBoardData(showLoader: false);
+                                  },
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext),
+                  child: const Text('Schließen'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  // Hilfsdialog zum Umbenennen (gibt den neuen Titel per Callback zurück)
+  void _showEditSubtaskDialog(
+    int subtaskId,
+    String currentTitle,
+    Function(String) onSaved,
+  ) {
+    final controller = TextEditingController(text: currentTitle);
+
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Teilpunkt bearbeiten'),
+          content: TextField(
+            controller: controller,
+            decoration: const InputDecoration(labelText: 'Titel'),
+            textCapitalization: TextCapitalization.sentences,
+            autofocus: true,
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Abbrechen'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                final newTitle = controller.text.trim();
+                if (newTitle.isEmpty) return;
+
+                Navigator.pop(
+                  dialogContext,
+                ); // Schließt nur den kleinen Bearbeiten-Dialog
+                onSaved(newTitle); // Führt die Speicher-Funktion aus
+                await fetchBoardData(
+                  showLoader: false,
+                ); // Board im Hintergrund aktualisieren
+              },
+              child: const Text('Speichern'),
+            ),
+          ],
+        );
+      },
+    ).then((_) => controller.dispose());
+  }
+
   void _showMessage(String message) {
     ScaffoldMessenger.of(context)
         .showSnackBar(SnackBar(content: Text(message)));
@@ -720,6 +908,7 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
       onAddSubtask: (taskId) => _showAddSubtaskDialog(taskId),
       onToggleSubtask: (subtaskId, currentStatus) =>
           _toggleSubtask(subtaskId, currentStatus),
+      onManageSubtasks: (taskData) => _showManageSubtasksDialog(taskData),
     );
   }
 }
