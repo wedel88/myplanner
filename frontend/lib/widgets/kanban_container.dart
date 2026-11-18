@@ -11,7 +11,8 @@ class KanbanContainerWidget extends StatelessWidget {
   final Function(int containerId) onCreateTask;
   final Function(int containerId, String name) onEditContainer;
   final Function(int containerId, String name) onDeleteContainer;
-  final Function(int taskId, String title, String desc) onEditTask;
+  final Function(int taskId, String title, String desc, String status)
+  onEditTask;
   final Function(int taskId, String title) onDeleteTask;
   final Function(int taskId) onAddSubtask;
   final Function(int subtaskId, bool currentStatus) onToggleSubtask;
@@ -201,8 +202,12 @@ class KanbanContainerWidget extends StatelessWidget {
                                 children: [
                                   if (isHovering) // Die blaue Linie
                                     Container(height: 4, color: Colors.blue),
-                                  Draggable<Map<String, dynamic>>(
+                                  LongPressDraggable<Map<String, dynamic>>(
                                     data: task,
+                                    delay: const Duration(
+                                      milliseconds: 200,
+                                    ), // Kurzer Klick = Dialog
+
                                     feedback: Material(
                                       elevation: 6,
                                       color: Colors.transparent,

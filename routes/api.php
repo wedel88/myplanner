@@ -17,7 +17,7 @@ Route::get('/projects/{project}/containers', [ProjectController::class, 'getCont
 
 // Neue Container für ein Projekt erstellen
 Route::post('/projects/{project}/containers', [ContainerController::class, 'store']);
-
+Route::post('/projects/reorder', [ProjectController::class, 'reorder']);
 // Neue Tasks für einen Container erstellen
 Route::post('/containers/{container}/tasks', [TaskController::class, 'store']);
 
@@ -30,8 +30,6 @@ Route::delete('/tasks/{task}', [TaskController::class, 'destroy']);
 // Container löschen
 Route::delete('/containers/{container}', [ContainerController::class, 'destroy']);
 
-Route::put('/containers/{container}/position', [ContainerController::class, 'updatePosition']);
-
 // REST-API-Routen für das Kanban-Board
 Route::apiResource('projects', ProjectController::class);
 Route::apiResource('containers', ContainerController::class);
@@ -42,3 +40,10 @@ Route::apiResource('comments', CommentController::class);
 Route::post('/subtasks', [SubtaskController::class, 'store']);
 Route::put('/subtasks/{subtask}', [SubtaskController::class, 'update']);
 Route::delete('/subtasks/{subtask}', [SubtaskController::class, 'destroy']);
+
+// Für das Verschieben von Tasks innerhalb einer Spalte oder zwischen Spalten
+Route::patch('/tasks/{task}/move', [TaskController::class, 'move']);
+Route::patch('/tasks/{task}/reorder', [TaskController::class, 'reorder']);
+
+// Für das Verschieben von Spalten (Containers)
+Route::patch('/containers/{container}/reorder', [ContainerController::class, 'reorder']);

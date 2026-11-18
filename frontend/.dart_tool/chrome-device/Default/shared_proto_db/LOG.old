@@ -1,23 +1,26 @@
-2026/11/18-09:55:49.507 58c0 Reusing MANIFEST C:\Users\JAKUBP~1\AppData\Local\Temp\flutter_tools.211c8b32\flutter_tools_chrome_device.40663f30\Default\shared_proto_db/MANIFEST-000001
-2026/11/18-09:55:49.508 58c0 Recovering log #39
-2026/11/18-09:55:49.509 58c0 Reusing old log C:\Users\JAKUBP~1\AppData\Local\Temp\flutter_tools.211c8b32\flutter_tools_chrome_device.40663f30\Default\shared_proto_db/000039.log 
-2026/11/18-09:55:49.509 58c0 Delete type=0 #3
-2026/11/18-09:55:49.509 58c0 Delete type=0 #4
-2026/11/18-09:55:49.509 58c0 Delete type=0 #7
-2026/11/18-09:55:49.509 58c0 Delete type=2 #8
-2026/11/18-09:55:49.509 58c0 Delete type=0 #10
-2026/11/18-09:55:49.509 58c0 Delete type=2 #11
-2026/11/18-09:55:49.509 58c0 Delete type=0 #13
-2026/11/18-09:55:49.509 58c0 Delete type=2 #14
-2026/11/18-09:55:49.510 58c0 Delete type=0 #16
-2026/11/18-09:55:49.510 58c0 Delete type=2 #17
-2026/11/18-09:55:49.510 58c0 Delete type=0 #19
-2026/11/18-09:55:49.510 58c0 Delete type=2 #21
-2026/11/18-09:55:49.510 58c0 Delete type=0 #23
-2026/11/18-09:55:49.510 58c0 Delete type=2 #24
-2026/11/18-09:55:49.510 58c0 Delete type=0 #26
-2026/11/18-09:55:49.510 58c0 Delete type=2 #27
-2026/11/18-09:55:49.510 58c0 Delete type=0 #29
-2026/11/18-09:55:49.510 58c0 Delete type=2 #30
-2026/11/18-09:55:49.510 58c0 Delete type=0 #32
-2026/11/18-09:55:49.510 58c0 Delete type=0 #36
+2026/11/18-11:23:05.357 2eb0 Reusing MANIFEST C:\Users\JAKUBP~1\AppData\Local\Temp\flutter_tools.f376a84d\flutter_tools_chrome_device.9700841c\Default\shared_proto_db/MANIFEST-000001
+2026/11/18-11:23:05.358 2eb0 Recovering log #39
+2026/11/18-11:23:05.360 2eb0 Reusing old log C:\Users\JAKUBP~1\AppData\Local\Temp\flutter_tools.f376a84d\flutter_tools_chrome_device.9700841c\Default\shared_proto_db/000039.log 
+2026/11/18-11:23:05.361 2eb0 Delete type=0 #3
+2026/11/18-11:23:05.361 2eb0 Delete type=0 #4
+2026/11/18-11:23:05.361 2eb0 Delete type=0 #7
+2026/11/18-11:23:05.361 2eb0 Delete type=2 #8
+2026/11/18-11:23:05.361 2eb0 Delete type=0 #10
+2026/11/18-11:23:05.361 2eb0 Delete type=2 #11
+2026/11/18-11:23:05.361 2eb0 Delete type=0 #13
+2026/11/18-11:23:05.361 2eb0 Delete type=2 #14
+2026/11/18-11:23:05.361 2eb0 Delete type=0 #16
+2026/11/18-11:23:05.361 2eb0 Delete type=2 #17
+2026/11/18-11:23:05.361 2eb0 Delete type=0 #19
+2026/11/18-11:23:05.361 2eb0 Delete type=2 #21
+2026/11/18-11:23:05.361 2eb0 Delete type=0 #23
+2026/11/18-11:23:05.361 2eb0 Delete type=2 #24
+2026/11/18-11:23:05.361 2eb0 Delete type=0 #26
+2026/11/18-11:23:05.361 2eb0 Delete type=2 #27
+2026/11/18-11:23:05.361 2eb0 Delete type=0 #29
+2026/11/18-11:23:05.361 2eb0 Delete type=2 #30
+2026/11/18-11:23:05.361 2eb0 Delete type=0 #32
+2026/11/18-11:23:05.361 2eb0 Delete type=0 #36
+2026/11/18-11:25:05.380 2eb0 Level-0 table #43: started
+2026/11/18-11:25:05.390 2eb0 Level-0 table #43: 140869 bytes OK
+2026/11/18-11:25:05.393 2eb0 Delete type=0 #39

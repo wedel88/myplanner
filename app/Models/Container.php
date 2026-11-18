@@ -9,7 +9,7 @@ class Container extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['project_id', 'name'];
+    protected $fillable = ['project_id', 'name', 'position'];
 
     // Ein Container gehört zu einem Projekt
     public function project()

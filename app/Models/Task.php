@@ -9,7 +9,14 @@ class Task extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['container_id', 'title', 'description'];
+    protected $fillable = [
+        'container_id',
+        'title',
+        'description',
+        'status',
+        'due_at',
+        'position'
+    ];
 
     // Ein Task gehört zu einem Container
     public function container()

@@ -4,8 +4,7 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-return new class extends Migration
-{
+return new class extends Migration {
     public function up(): void
     {
         Schema::create('tasks', function (Blueprint $table) {
@@ -18,6 +17,7 @@ return new class extends Migration
             $table->timestamp('planned_start_at')->nullable();
             $table->timestamp('planned_end_at')->nullable();
             $table->timestamp('due_at')->nullable();
+            $table->integer('position')->default(0); // <-- NEU: Für die manuelle Reihenfolge/Priorisierung
             $table->timestamps();
         });
     }

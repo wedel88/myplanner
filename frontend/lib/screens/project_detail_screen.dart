@@ -403,47 +403,87 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
     int taskId,
     String currentTitle,
     String currentDesc,
+    String currentStatus, // NEU: Der aktuelle Status
   ) {
     final titleController = TextEditingController(text: currentTitle);
     final descriptionController = TextEditingController(text: currentDesc);
+    String selectedStatus = currentStatus; // Lokale Variable für das Dropdown
 
     showDialog<void>(
       context: context,
       builder: (dialogContext) {
-        return AlertDialog(
-          title: const Text('Aufgabe bearbeiten'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: titleController,
-                decoration: const InputDecoration(labelText: 'Titel'),
-                textCapitalization: TextCapitalization.sentences,
+        return StatefulBuilder(
+          // Wichtig, damit das Dropdown sich aktualisiert
+          builder: (context, setStateDialog) {
+            return AlertDialog(
+              title: const Text('Aufgabe bearbeiten'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: titleController,
+                    decoration: const InputDecoration(labelText: 'Titel'),
+                  ),
+                  TextField(
+                    controller: descriptionController,
+                    decoration: const InputDecoration(
+                      labelText: 'Beschreibung',
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  // NEU: Das Dropdown für den Status
+                  DropdownButtonFormField<String>(
+                    value: selectedStatus,
+                    decoration: const InputDecoration(labelText: 'Status'),
+                    items: const [
+                      DropdownMenuItem(value: 'open', child: Text('Offen')),
+                      DropdownMenuItem(
+                        value: 'in_progress',
+                        child: Text('In Bearbeitung'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'completed',
+                        child: Text('Erledigt'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'closed_incomplete',
+                        child: Text('Unvollständig geschlossen'),
+                      ),
+                    ],
+                    onChanged: (value) {
+                      if (value != null) {
+                        setStateDialog(() {
+                          selectedStatus = value;
+                        });
+                      }
+                    },
+                  ),
+                ],
               ),
-              TextField(
-                controller: descriptionController,
-                decoration: const InputDecoration(labelText: 'Beschreibung'),
-                textCapitalization: TextCapitalization.sentences,
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('Abbrechen'),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                final newTitle = titleController.text.trim();
-                final newDesc = descriptionController.text.trim();
-                if (newTitle.isEmpty) return;
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext),
+                  child: const Text('Abbrechen'),
+                ),
+                ElevatedButton(
+                  onPressed: () async {
+                    final newTitle = titleController.text.trim();
+                    final newDesc = descriptionController.text.trim();
+                    if (newTitle.isEmpty) return;
 
-                Navigator.pop(dialogContext);
-                await _updateTask(taskId, newTitle, newDesc);
-              },
-              child: const Text('Speichern'),
-            ),
-          ],
+                    Navigator.pop(dialogContext);
+                    await _updateTask(
+                      taskId,
+                      newTitle,
+                      newDesc,
+                      selectedStatus,
+                    );
+                  },
+                  child: const Text('Speichern'),
+                ),
+              ],
+            );
+          },
         );
       },
     ).then((_) {
@@ -452,14 +492,23 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
     });
   }
 
-  Future<void> _updateTask(int taskId, String title, String description) async {
+  Future<void> _updateTask(
+    int taskId,
+    String title,
+    String description,
+    String status,
+  ) async {
     final url = Uri.parse('$apiBaseUrl/tasks/$taskId');
 
     try {
       final response = await http.put(
         url,
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'title': title, 'description': description}),
+        body: jsonEncode({
+          'title': title,
+          'description': description,
+          'status': status, // NEU: Status mitsenden
+        }),
       );
 
       if (!mounted) return;
@@ -982,8 +1031,8 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
         onCreateTask: (cId) => _showCreateTaskDialog(cId),
         onEditContainer: (cId, name) => _showEditContainerDialog(cId, name),
         onDeleteContainer: (cId, name) => _confirmDeleteContainer(cId, name),
-        onEditTask: (taskId, title, desc) =>
-            _showEditTaskDialog(taskId, title, desc),
+        onEditTask: (taskId, title, desc, status) =>
+            _showEditTaskDialog(taskId, title, desc, status),
         onDeleteTask: (taskId, title) => _confirmDeleteTask(taskId, title),
         onAddSubtask: (taskId) => _showAddSubtaskDialog(taskId),
         onToggleSubtask: (subtaskId, currentStatus) =>

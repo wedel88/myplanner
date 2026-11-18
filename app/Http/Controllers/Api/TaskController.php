@@ -70,4 +70,38 @@ class TaskController extends Controller
         $task->delete();
         return response()->json(['message' => 'Aufgabe gelöscht'], 200);
     }
+    public function move(Request $request, Task $task)
+    {
+        $request->validate([
+            'container_id' => 'required|exists:containers,id',
+            'position' => 'nullable|integer', // Optional: Die genaue Zielposition
+        ]);
+
+        $targetContainerId = $request->container_id;
+        $newPosition = $request->position ?? 0;
+
+        // Aktualisiere Container und Position der verschobenen Task
+        $task->update([
+            'container_id' => $targetContainerId,
+            'position' => $newPosition,
+        ]);
+
+        return response()->json(['message' => 'Task erfolgreich verschoben']);
+    }
+    // In TaskController.php hinzufügen:
+    public function reorder(Request $request, Task $task)
+    {
+        $validated = $request->validate([
+            'container_id' => 'required|exists:containers,id',
+            'position' => 'required|integer',
+        ]);
+
+        // Wir nutzen hier explizit die Zuweisung und save(), 
+        // damit die Position sicher in der Datenbank landet
+        $task->container_id = $validated['container_id'];
+        $task->position = $validated['position'];
+        $task->save();
+
+        return response()->json(['message' => 'Task Position gespeichert']);
+    }
 }

@@ -9,16 +9,21 @@ use Illuminate\Http\Request;
 
 class ContainerController extends Controller
 {
- public function index(Request $request)
+    public function index(Request $request)
     {
         $query = Container::query();
 
         if ($request->has('project_id')) {
-        $query->where('project_id', $request->project_id);
+            $query->where('project_id', $request->project_id);
         }
 
-    // WICHTIG: Hier muss 'tasks.subtasks' stehen!
-    return response()->json($query->with('tasks.subtasks')->orderBy('position')->get(), 200);
+        // Sortiere Container nach position und Tasks darin ebenfalls nach position
+        return response()->json($query->with([
+            'tasks' => function ($q) {
+                $q->orderBy('position');
+            },
+            'tasks.subtasks'
+        ])->orderBy('position')->get(), 200);
     }
 
     // Einen neuen Container (Spalte) erstellen
@@ -66,17 +71,11 @@ class ContainerController extends Controller
         $container->delete();
         return response()->json(['message' => 'Container gelöscht'], 200);
     }
-    public function updatePosition(Request $request, $id)
-{
-    $container = Container::findOrFail($id);
-    
-    $validated = $request->validate([
-        'position' => 'required|integer',
-    ]);
 
-    $container->position = $validated['position'];
-    $container->save();
-
-    return response()->json(['message' => 'Position aktualisiert'], 200);
-}
+    public function reorder(Request $request, Container $container)
+    {
+        $request->validate(['position' => 'required|integer']);
+        $container->update(['position' => $request->position]); // position muss in $fillable sein!
+        return response()->json(['success' => true]);
+    }
 }
