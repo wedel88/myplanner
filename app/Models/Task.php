@@ -15,12 +15,17 @@ class Task extends Model
         'title',
         'description',
         'status',
+        'assigned_user_id',
+        'planned_start_at', // <-- NEU
+        'planned_end_at',   // <-- NEU
         'due_at',
-        'position'
+        'position',
     ];
     protected $casts = [
-        'due_at' => 'datetime',
-    ];
+    'due_at' => 'datetime',
+    'planned_start_at' => 'datetime',
+    'planned_end_at' => 'datetime',
+];
 
     // Ein Task gehört zu einem Container
     public function container()

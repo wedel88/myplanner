@@ -34,6 +34,8 @@ class TaskController extends Controller
             'title' => 'required|string|max:255',
             'description' => 'nullable|string',
             'status' => 'nullable|in:open,in_progress,completed,closed_incomplete',
+            'planned_start_at' => 'nullable|date', // <-- NEU
+            'planned_end_at' => 'nullable|date',   // <-- NEU
             'due_at' => 'nullable|date',
         ]);
 
@@ -52,13 +54,15 @@ class TaskController extends Controller
     }
 
     // Eine Aufgabe aktualisieren (z.B. Status ändern oder Verschieben in andere Spalte)
-    public function update(Request $request, Task $task)
+        public function update(Request $request, Task $task)
     {
         $validated = $request->validate([
             'container_id' => 'sometimes|exists:containers,id',
             'title' => 'sometimes|required|string|max:255',
             'description' => 'nullable|string',
             'status' => 'sometimes|in:open,in_progress,completed,closed_incomplete',
+            'planned_start_at' => 'nullable|date', // <-- NEU
+            'planned_end_at' => 'nullable|date',   // <-- NEU
             'due_at' => 'nullable|date',
         ]);
 

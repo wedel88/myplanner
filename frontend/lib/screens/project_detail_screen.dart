@@ -440,7 +440,7 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
                     ),
                     const SizedBox(height: 16),
                     DropdownButtonFormField<String>(
-                      value: selectedStatus,
+                      initialValue: selectedStatus,
                       decoration: const InputDecoration(labelText: 'Status'),
                       items: const [
                         DropdownMenuItem(value: 'open', child: Text('Offen')),
@@ -1086,17 +1086,6 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
               builder: (_) => TaskDetailScreen(
                 task: taskData, // Die geklickte Task
                 onTaskUpdated: () => fetchBoardData(showLoader: false),
-                onEditRequested: () {
-                  if (tId != null) {
-                    _showEditTaskDialog(
-                      tId,
-                      taskData['title']?.toString() ?? '',
-                      taskData['description']?.toString() ?? '',
-                      taskData['status']?.toString() ?? 'open',
-                      taskData['due_at']?.toString(),
-                    );
-                  }
-                },
               ),
             ),
           );
