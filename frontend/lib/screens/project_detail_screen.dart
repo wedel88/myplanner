@@ -73,23 +73,6 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
     }
   }
 
-  Future<void> _updateContainerPosition(
-    int containerId,
-    int newPosition,
-  ) async {
-    final url = Uri.parse('$apiBaseUrl/containers/$containerId/position');
-
-    try {
-      await http.put(
-        url,
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'position': newPosition}),
-      );
-    } catch (e) {
-      _showMessage('Fehler beim Verschieben der Spalte: $e');
-    }
-  }
-
   void _showCreateContainerDialog() {
     final nameController = TextEditingController();
 
@@ -393,6 +376,29 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
     }
   }
 
+  Future<void> _updateContainerPosition(
+    int containerId,
+    int newPosition,
+  ) async {
+    final url = Uri.parse('$apiBaseUrl/containers/$containerId/reorder');
+
+    try {
+      final response = await http.patch(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'position': newPosition}),
+      );
+
+      if (response.statusCode != 200 && response.statusCode != 204) {
+        debugPrint(
+          'API-Fehler beim Verschieben: ${response.statusCode} - ${response.body}',
+        );
+      }
+    } catch (e) {
+      debugPrint('Netzwerk-Fehler beim Verschieben: $e');
+    }
+  }
+
   void _showEditTaskDialog(
     int taskId,
     String currentTitle,
@@ -463,31 +469,6 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
         _showMessage('Aufgabe aktualisiert');
       } else {
         _showMessage('Fehler beim Aktualisieren: ${response.statusCode}');
-      }
-    } catch (e) {
-      if (!mounted) return;
-      _showMessage('Verbindungsfehler: $e');
-    }
-  }
-
-  Future<void> _moveTaskToContainer(int taskId, int newContainerId) async {
-    final url = Uri.parse('$apiBaseUrl/tasks/$taskId');
-
-    try {
-      final response = await http.put(
-        url,
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'container_id': newContainerId}),
-      );
-
-      if (!mounted) return;
-
-      if (response.statusCode == 200 ||
-          response.statusCode == 201 ||
-          response.statusCode == 204) {
-        await fetchBoardData();
-      } else {
-        _showMessage('Fehler beim Verschieben: ${response.statusCode}');
       }
     } catch (e) {
       if (!mounted) return;
@@ -606,6 +587,38 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
     } catch (e) {
       if (!mounted) return;
       _showMessage('Verbindungsfehler: $e');
+    }
+  }
+
+  Future<void> _updateTaskOrder(
+    int taskId,
+    int containerId,
+    int newPosition,
+  ) async {
+    final url = Uri.parse('$apiBaseUrl/tasks/$taskId/reorder');
+
+    try {
+      final response = await http.patch(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'container_id': containerId,
+          'position': newPosition,
+        }),
+      );
+
+      if (!mounted) return;
+
+      // Wir rufen hier KEIN fetchBoardData() mehr auf!
+      // Das UI hat sich durch den Drop schon lokal aktualisiert.
+      if (response.statusCode != 200 && response.statusCode != 204) {
+        debugPrint(
+          'Fehler beim Speichern der Task-Position: ${response.statusCode}',
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      debugPrint('Netzwerkfehler beim Speichern der Task-Position: $e');
     }
   }
 
@@ -791,10 +804,40 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
               _isReorderMode ? Icons.done : Icons.swap_horiz,
               color: _isReorderMode ? Colors.green : null,
             ),
-            onPressed: () {
-              setState(() {
-                _isReorderMode = !_isReorderMode;
-              });
+            onPressed: () async {
+              if (_isReorderMode) {
+                // 1. SCHRITT: Modus sofort beenden (UI reagiert sofort)
+                setState(() {
+                  _isReorderMode = false;
+                });
+                final currentContainers = List.from(containers);
+
+                for (int i = 0; i < currentContainers.length; i++) {
+                  final container =
+                      currentContainers[i] as Map<String, dynamic>;
+                  final containerId = int.tryParse(
+                    container['id']?.toString() ?? '',
+                  );
+
+                  if (containerId != null) {
+                    try {
+                      await _updateContainerPosition(containerId, i);
+                    } catch (e) {
+                      debugPrint(
+                        'Fehler beim Speichern von Container $containerId: $e',
+                      );
+                    }
+                  }
+                }
+
+                // 3. SCHRITT: Daten neu laden
+                await fetchBoardData(showLoader: false);
+              } else {
+                // Modus starten
+                setState(() {
+                  _isReorderMode = true;
+                });
+              }
             },
           ),
           IconButton(
@@ -830,32 +873,32 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
       return ReorderableListView.builder(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.all(8),
-        itemCount: containers.length + 1,
+        itemCount: containers.length,
+        buildDefaultDragHandles: false,
         onReorderItem: (int oldIndex, int newIndex) async {
-          if (oldIndex >= containers.length || newIndex >= containers.length) {
-            return;
-          }
+          if (oldIndex < newIndex) newIndex -= 1;
 
           setState(() {
             final item = containers.removeAt(oldIndex);
             containers.insert(newIndex, item);
           });
 
-          for (int i = 0; i < containers.length; i++) {
-            final container = containers[i] as Map<String, dynamic>;
-            final containerId = int.tryParse(container['id']?.toString() ?? '');
-            if (containerId != null) {
-              await _updateContainerPosition(containerId, i);
-            }
-          }
+          final container = containers[newIndex] as Map<String, dynamic>;
+          final containerId = int.tryParse(container['id']?.toString() ?? '');
 
-          await fetchBoardData();
+          if (containerId != null) {
+            await _updateContainerPosition(containerId, newIndex);
+          }
         },
         itemBuilder: (context, index) {
-          return _buildContainerItem(index, isReorderable: true);
+          return KeyedSubtree(
+            key: ValueKey('container_reorder_$index'),
+            child: _buildContainerItem(index, isReorderable: true),
+          );
         },
       );
     } else {
+      // NORMAL MODUS FÜR TASKS
       return ListView.builder(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.all(8),
@@ -883,32 +926,72 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
     }
 
     final container = containers[index] as Map<String, dynamic>;
-    final containerId = container['id'];
+    final containerId = int.tryParse(container['id']?.toString() ?? '') ?? 0;
 
-    return KanbanContainerWidget(
-      key: ValueKey('container_$containerId'), // <--- HIER DEN KEY HINZUFÜGEN
-      container: container,
+    // ReorderableDragStartListener sorgt dafür, dass man die Spalte anfassen kann
+    final kanbanWidget = ReorderableDragStartListener(
       index: index,
-      isReorderable: isReorderable,
-      onTaskDropped: (task, containerId) {
-        final rawId = task['id'];
-        final taskId = rawId != null ? int.tryParse(rawId.toString()) : null;
-        if (taskId != null && containerId > 0) {
-          _moveTaskToContainer(taskId, containerId);
-        }
-      },
-      onCreateTask: (containerId) => _showCreateTaskDialog(containerId),
-      onEditContainer: (containerId, name) =>
-          _showEditContainerDialog(containerId, name),
-      onDeleteContainer: (containerId, name) =>
-          _confirmDeleteContainer(containerId, name),
-      onEditTask: (taskId, title, desc) =>
-          _showEditTaskDialog(taskId, title, desc),
-      onDeleteTask: (taskId, title) => _confirmDeleteTask(taskId, title),
-      onAddSubtask: (taskId) => _showAddSubtaskDialog(taskId),
-      onToggleSubtask: (subtaskId, currentStatus) =>
-          _toggleSubtask(subtaskId, currentStatus),
-      onManageSubtasks: (taskData) => _showManageSubtasksDialog(taskData),
+      enabled: isReorderable, // Nur ziehbar, wenn wir im Reorder-Modus sind
+      child: KanbanContainerWidget(
+        key: ValueKey('container_$containerId'),
+        container: container,
+        index: index,
+        isReorderable: isReorderable,
+        isReorderMode: isReorderable, // NEU: Blockiert Tasks im Reorder-Modus
+        onTaskDropped: (task, cId, newPos) {
+          if (!isReorderable) {
+            final rawId = task['id'];
+            final taskId = rawId != null
+                ? int.tryParse(rawId.toString())
+                : null;
+
+            if (taskId != null && cId > 0) {
+              // 1. Lokales UI-Update (damit es sofort flüssig aussieht)
+              setState(() {
+                // Finde den Quell-Container und entferne die Task dort
+                final sourceContainer = containers.firstWhere(
+                  (c) => (c['tasks'] as List).any((t) => t['id'] == taskId),
+                  orElse: () => null,
+                );
+                if (sourceContainer != null) {
+                  (sourceContainer['tasks'] as List).removeWhere(
+                    (t) => t['id'] == taskId,
+                  );
+                }
+
+                // Finde den Ziel-Container und füge die Task an der neuen Position ein
+                final targetContainer = containers.firstWhere(
+                  (c) => int.tryParse(c['id']?.toString() ?? '') == cId,
+                  orElse: () => null,
+                );
+                if (targetContainer != null) {
+                  final targetTasks = targetContainer['tasks'] as List;
+                  // Falls die Position größer ist als die Liste, füge am Ende an
+                  final insertIndex = newPos > targetTasks.length
+                      ? targetTasks.length
+                      : newPos;
+                  targetTasks.insert(insertIndex, task);
+                }
+              });
+
+              // 2. Backend im Hintergrund aufrufen (ohne await, damit UI nicht blockiert)
+              _updateTaskOrder(taskId, cId, newPos);
+            }
+          }
+        },
+        onCreateTask: (cId) => _showCreateTaskDialog(cId),
+        onEditContainer: (cId, name) => _showEditContainerDialog(cId, name),
+        onDeleteContainer: (cId, name) => _confirmDeleteContainer(cId, name),
+        onEditTask: (taskId, title, desc) =>
+            _showEditTaskDialog(taskId, title, desc),
+        onDeleteTask: (taskId, title) => _confirmDeleteTask(taskId, title),
+        onAddSubtask: (taskId) => _showAddSubtaskDialog(taskId),
+        onToggleSubtask: (subtaskId, currentStatus) =>
+            _toggleSubtask(subtaskId, currentStatus),
+        onManageSubtasks: (taskData) => _showManageSubtasksDialog(taskData),
+      ),
     );
+
+    return kanbanWidget;
   }
 }

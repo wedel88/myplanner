@@ -33,7 +33,8 @@ class _KanbanTaskCardState extends State<KanbanTaskCard> {
     final taskDesc = task['description']?.toString() ?? '';
     final subtasks = (task['subtasks'] as List<dynamic>?) ?? [];
 
-    return Card(
+    // Die eigentliche Task-Card als Variable definieren
+    final cardWidget = Card(
       margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
       child: Padding(
         padding: const EdgeInsets.all(8.0),
@@ -229,5 +230,8 @@ class _KanbanTaskCardState extends State<KanbanTaskCard> {
         ),
       ),
     );
+
+    // Hier wird das Card-Widget wieder in das Draggable eingebettet
+    return cardWidget;
   }
 }

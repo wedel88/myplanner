@@ -1,6 +1,6 @@
 import 'package:material_ui/material_ui.dart'; // Enthält bereits die Localizations
 
-import 'screens/project_list_screen.dart';
+import 'screens/project_grid_screen.dart';
 
 const String apiBaseUrl = 'http://127.0.0.1:8000/api';
 
@@ -23,7 +23,7 @@ class MyPlannerApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
         useMaterial3: true,
       ),
-      home: const ProjectListScreen(),
+      home: const ProjectGridScreen(),
     );
   }
 }
