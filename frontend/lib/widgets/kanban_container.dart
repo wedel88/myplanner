@@ -23,7 +23,9 @@ class KanbanContainerWidget extends StatelessWidget {
   final Function(int taskId) onAddSubtask;
   final Function(int subtaskId, bool currentStatus) onToggleSubtask;
   final Function(Map<String, dynamic> taskData) onManageSubtasks;
-  final bool isReorderMode; // NEU
+  final Function(Map<String, dynamic> task) onTaskTap;
+
+  final bool isReorderMode;
 
   const KanbanContainerWidget({
     super.key,
@@ -39,7 +41,8 @@ class KanbanContainerWidget extends StatelessWidget {
     required this.onAddSubtask,
     required this.onToggleSubtask,
     required this.onManageSubtasks,
-    required this.isReorderMode, // NEU
+    required this.isReorderMode,
+    required this.onTaskTap,
   });
 
   @override
@@ -189,6 +192,7 @@ class KanbanContainerWidget extends StatelessWidget {
                             onAddSubtask: onAddSubtask,
                             onToggleSubtask: onToggleSubtask,
                             onManageSubtasks: onManageSubtasks,
+                            onTap: () => onTaskTap(task),
                           );
 
                           if (isReorderMode) return taskCard;

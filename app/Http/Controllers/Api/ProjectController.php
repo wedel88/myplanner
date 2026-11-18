@@ -46,13 +46,6 @@ class ProjectController extends Controller
     }
         public function getContainersWithTasks(Project $project)
     {
-        // 1. Vor dem Laden prüfen, ob was abgelaufen ist
-        //Task::whereNotNull('due_at')
-        //    ->where('due_at', '<', now())
-        //    ->whereNotIn('status', ['completed', 'closed_incomplete'])
-         //   ->update(['status' => 'closed_incomplete']);
-
-        // 2. Container laden
         $containers = $project->containers()
             ->orderBy('position')
             ->with(['tasks' => function ($query) {

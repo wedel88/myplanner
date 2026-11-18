@@ -14,6 +14,7 @@ class KanbanTaskCard extends StatefulWidget {
   final Function(int taskId) onAddSubtask;
   final Function(int subtaskId, bool currentStatus) onToggleSubtask;
   final Function(Map<String, dynamic> task) onManageSubtasks;
+  final Function() onTap; // NEU
 
   const KanbanTaskCard({
     super.key,
@@ -23,6 +24,7 @@ class KanbanTaskCard extends StatefulWidget {
     required this.onAddSubtask,
     required this.onToggleSubtask,
     required this.onManageSubtasks,
+    required this.onTap,
   });
 
   @override
@@ -70,16 +72,7 @@ class _KanbanTaskCardState extends State<KanbanTaskCard> {
 
     // Die eigentliche Task-Card als Variable definieren
     final cardWidget = InkWell(
-      onTap: () {
-        // Öffnet den Bearbeiten-Dialog bei einem normalen Klick
-        widget.onEdit(
-          taskId,
-          taskTitle,
-          taskDesc,
-          task['status']?.toString() ?? 'open',
-          task['due_at']?.toString(), // NEU
-        );
-      },
+      onTap: widget.onTap,
       borderRadius: BorderRadius.circular(12), // Für den schönen Ripple-Effekt
       child: Card(
         margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),

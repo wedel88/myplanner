@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 
 import '../main.dart';
 import '../widgets/kanban_container.dart';
+import 'task_detail_screen.dart';
 
 class ProjectDetailScreen extends StatefulWidget {
   final int projectId;
@@ -1023,7 +1024,7 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
         container: container,
         index: index,
         isReorderable: isReorderable,
-        isReorderMode: isReorderable, // NEU: Blockiert Tasks im Reorder-Modus
+        isReorderMode: isReorderable, // Blockiert Tasks im Reorder-Modus
         onTaskDropped: (task, cId, newPos) {
           if (!isReorderable) {
             final rawId = task['id'];
@@ -1032,12 +1033,11 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
                 : null;
 
             if (taskId != null && cId > 0) {
-              // 1. Lokales UI-Update (damit es sofort flüssig aussieht)
+              // 1. Lokales UI-Update
               setState(() {
-                // Finde den Quell-Container und entferne die Task dort
                 final sourceContainer = containers.firstWhere(
                   (c) => (c['tasks'] as List).any((t) => t['id'] == taskId),
-                  orElse: () => null,
+                  orElse: () => {},
                 );
                 if (sourceContainer != null) {
                   (sourceContainer['tasks'] as List).removeWhere(
@@ -1045,14 +1045,12 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
                   );
                 }
 
-                // Finde den Ziel-Container und füge die Task an der neuen Position ein
                 final targetContainer = containers.firstWhere(
                   (c) => int.tryParse(c['id']?.toString() ?? '') == cId,
-                  orElse: () => null,
+                  orElse: () => {},
                 );
                 if (targetContainer != null) {
                   final targetTasks = targetContainer['tasks'] as List;
-                  // Falls die Position größer ist als die Liste, füge am Ende an
                   final insertIndex = newPos > targetTasks.length
                       ? targetTasks.length
                       : newPos;
@@ -1060,7 +1058,7 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
                 }
               });
 
-              // 2. Backend im Hintergrund aufrufen (ohne await, damit UI nicht blockiert)
+              // 2. Backend im Hintergrund aufrufen
               _updateTaskOrder(taskId, cId, newPos);
             }
           }
@@ -1075,6 +1073,34 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
         onToggleSubtask: (subtaskId, currentStatus) =>
             _toggleSubtask(subtaskId, currentStatus),
         onManageSubtasks: (taskData) => _showManageSubtasksDialog(taskData),
+
+        // NEU: Das korrigierte onTaskTap-Callback
+        onTaskTap: (Map<String, dynamic> taskData) {
+          // <-- taskData wird jetzt vom Container übergeben
+          final id = taskData['id'];
+          final tId = id != null ? int.tryParse(id.toString()) : null;
+
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => TaskDetailScreen(
+                task: taskData, // Die geklickte Task
+                onTaskUpdated: () => fetchBoardData(showLoader: false),
+                onEditRequested: () {
+                  if (tId != null) {
+                    _showEditTaskDialog(
+                      tId,
+                      taskData['title']?.toString() ?? '',
+                      taskData['description']?.toString() ?? '',
+                      taskData['status']?.toString() ?? 'open',
+                      taskData['due_at']?.toString(),
+                    );
+                  }
+                },
+              ),
+            ),
+          );
+        },
       ),
     );
 
