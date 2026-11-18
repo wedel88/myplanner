@@ -2,7 +2,14 @@ import 'package:material_ui/material_ui.dart';
 
 class KanbanTaskCard extends StatefulWidget {
   final Map<String, dynamic> task;
-  final Function(int taskId, String title, String desc, String status) onEdit;
+  final Function(
+    int taskId,
+    String title,
+    String desc,
+    String status,
+    String? dueAt,
+  )
+  onEdit;
   final Function(int taskId, String title) onDelete;
   final Function(int taskId) onAddSubtask;
   final Function(int subtaskId, bool currentStatus) onToggleSubtask;
@@ -44,6 +51,23 @@ class _KanbanTaskCardState extends State<KanbanTaskCard> {
       statusColor = Colors.blue; // 'open'
     }
 
+    final dueAt = task['due_at']?.toString();
+    String dueAtFormatted = '';
+    bool isOverdue = false;
+
+    if (dueAt != null && dueAt.isNotEmpty) {
+      final date = DateTime.tryParse(dueAt);
+      if (date != null) {
+        dueAtFormatted =
+            "Fällig: ${date.day.toString().padLeft(2, '0')}.${date.month.toString().padLeft(2, '0')}.${date.year}";
+
+        // Prüfen, ob das Datum in der Vergangenheit liegt und die Task noch nicht erledigt ist
+        if (date.isBefore(DateTime.now()) && status != 'completed') {
+          isOverdue = true;
+        }
+      }
+    }
+
     // Die eigentliche Task-Card als Variable definieren
     final cardWidget = InkWell(
       onTap: () {
@@ -53,6 +77,7 @@ class _KanbanTaskCardState extends State<KanbanTaskCard> {
           taskTitle,
           taskDesc,
           task['status']?.toString() ?? 'open',
+          task['due_at']?.toString(), // NEU
         );
       },
       borderRadius: BorderRadius.circular(12), // Für den schönen Ripple-Effekt
@@ -100,6 +125,7 @@ class _KanbanTaskCardState extends State<KanbanTaskCard> {
                         taskTitle,
                         taskDesc,
                         task['status']?.toString() ?? 'open',
+                        task['due_at']?.toString(), // NEU
                       );
                     } else if (value == 'delete') {
                       widget.onDelete(taskId, taskTitle);
@@ -155,7 +181,30 @@ class _KanbanTaskCardState extends State<KanbanTaskCard> {
                   ],
                 ),
               ),
-
+              if (dueAtFormatted.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(left: 16.0, top: 4, bottom: 8),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.calendar_today,
+                        size: 14,
+                        color: isOverdue ? Colors.red : Colors.grey, // NEU
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        dueAtFormatted,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: isOverdue ? Colors.red : Colors.grey, // NEU
+                          fontWeight: isOverdue
+                              ? FontWeight.bold
+                              : FontWeight.normal, // NEU
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               // Sektion für Subtasks mit Ausklapp-Button
               if (subtasks.isNotEmpty) ...[
                 const Divider(height: 12),

@@ -403,62 +403,95 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
     int taskId,
     String currentTitle,
     String currentDesc,
-    String currentStatus, // NEU: Der aktuelle Status
+    String currentStatus,
+    String? currentDueAt, // NEU: Das aktuelle Datum (kann null sein)
   ) {
     final titleController = TextEditingController(text: currentTitle);
     final descriptionController = TextEditingController(text: currentDesc);
-    String selectedStatus = currentStatus; // Lokale Variable für das Dropdown
+    String selectedStatus = currentStatus;
+
+    // Wir parsen das aktuelle Datum von der API (z.B. "2026-11-20T00:00:00.000000Z")
+    DateTime? selectedDate = currentDueAt != null
+        ? DateTime.tryParse(currentDueAt)
+        : null;
 
     showDialog<void>(
       context: context,
       builder: (dialogContext) {
         return StatefulBuilder(
-          // Wichtig, damit das Dropdown sich aktualisiert
           builder: (context, setStateDialog) {
             return AlertDialog(
               title: const Text('Aufgabe bearbeiten'),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextField(
-                    controller: titleController,
-                    decoration: const InputDecoration(labelText: 'Titel'),
-                  ),
-                  TextField(
-                    controller: descriptionController,
-                    decoration: const InputDecoration(
-                      labelText: 'Beschreibung',
+              content: SingleChildScrollView(
+                // Wichtig, falls der Dialog auf kleinen Bildschirmen zu groß wird
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextField(
+                      controller: titleController,
+                      decoration: const InputDecoration(labelText: 'Titel'),
                     ),
-                  ),
-                  const SizedBox(height: 16),
-                  // NEU: Das Dropdown für den Status
-                  DropdownButtonFormField<String>(
-                    value: selectedStatus,
-                    decoration: const InputDecoration(labelText: 'Status'),
-                    items: const [
-                      DropdownMenuItem(value: 'open', child: Text('Offen')),
-                      DropdownMenuItem(
-                        value: 'in_progress',
-                        child: Text('In Bearbeitung'),
+                    TextField(
+                      controller: descriptionController,
+                      decoration: const InputDecoration(
+                        labelText: 'Beschreibung',
                       ),
-                      DropdownMenuItem(
-                        value: 'completed',
-                        child: Text('Erledigt'),
+                    ),
+                    const SizedBox(height: 16),
+                    DropdownButtonFormField<String>(
+                      value: selectedStatus,
+                      decoration: const InputDecoration(labelText: 'Status'),
+                      items: const [
+                        DropdownMenuItem(value: 'open', child: Text('Offen')),
+                        DropdownMenuItem(
+                          value: 'in_progress',
+                          child: Text('In Bearbeitung'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'completed',
+                          child: Text('Erledigt'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'closed_incomplete',
+                          child: Text('Unvollständig geschlossen'),
+                        ),
+                      ],
+                      onChanged: (value) {
+                        if (value != null) {
+                          setStateDialog(() => selectedStatus = value);
+                        }
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    // NEU: Der Date-Picker
+                    InkWell(
+                      onTap: () async {
+                        final pickedDate = await showDatePicker(
+                          context: context,
+                          initialDate: selectedDate ?? DateTime.now(),
+                          firstDate: DateTime(2020),
+                          lastDate: DateTime(2100),
+                        );
+                        if (pickedDate != null) {
+                          setStateDialog(() {
+                            selectedDate = pickedDate;
+                          });
+                        }
+                      },
+                      child: InputDecorator(
+                        decoration: const InputDecoration(
+                          labelText: 'Ablaufdatum (optional)',
+                          suffixIcon: Icon(Icons.calendar_today),
+                        ),
+                        child: Text(
+                          selectedDate != null
+                              ? "${selectedDate!.day.toString().padLeft(2, '0')}.${selectedDate!.month.toString().padLeft(2, '0')}.${selectedDate!.year}"
+                              : 'Kein Datum ausgewählt',
+                        ),
                       ),
-                      DropdownMenuItem(
-                        value: 'closed_incomplete',
-                        child: Text('Unvollständig geschlossen'),
-                      ),
-                    ],
-                    onChanged: (value) {
-                      if (value != null) {
-                        setStateDialog(() {
-                          selectedStatus = value;
-                        });
-                      }
-                    },
-                  ),
-                ],
+                    ),
+                  ],
+                ),
               ),
               actions: [
                 TextButton(
@@ -472,11 +505,13 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
                     if (newTitle.isEmpty) return;
 
                     Navigator.pop(dialogContext);
+                    // Wir übergeben das Datum als ISO-String an das Backend
                     await _updateTask(
                       taskId,
                       newTitle,
                       newDesc,
                       selectedStatus,
+                      selectedDate?.toIso8601String(),
                     );
                   },
                   child: const Text('Speichern'),
@@ -497,6 +532,7 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
     String title,
     String description,
     String status,
+    String? dueAt,
   ) async {
     final url = Uri.parse('$apiBaseUrl/tasks/$taskId');
 
@@ -507,7 +543,8 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
         body: jsonEncode({
           'title': title,
           'description': description,
-          'status': status, // NEU: Status mitsenden
+          'status': status,
+          'due_at': dueAt, // NEU
         }),
       );
 
@@ -1031,8 +1068,8 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
         onCreateTask: (cId) => _showCreateTaskDialog(cId),
         onEditContainer: (cId, name) => _showEditContainerDialog(cId, name),
         onDeleteContainer: (cId, name) => _confirmDeleteContainer(cId, name),
-        onEditTask: (taskId, title, desc, status) =>
-            _showEditTaskDialog(taskId, title, desc, status),
+        onEditTask: (taskId, title, desc, status, dueAt) =>
+            _showEditTaskDialog(taskId, title, desc, status, dueAt),
         onDeleteTask: (taskId, title) => _confirmDeleteTask(taskId, title),
         onAddSubtask: (taskId) => _showAddSubtaskDialog(taskId),
         onToggleSubtask: (subtaskId, currentStatus) =>

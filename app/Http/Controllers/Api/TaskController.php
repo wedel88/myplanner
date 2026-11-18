@@ -11,8 +11,14 @@ class TaskController extends Controller
     // Alle Aufgaben abrufen (optional nach Container filtern)
     public function index(Request $request)
     {
-        $query = Task::query();
+        // 1. Vor dem Laden: Prüfe alle Tasks, die abgelaufen sind und noch nicht geschlossen wurden
+        Task::whereNotNull('due_at')
+            ->where('due_at', '<', now())
+            ->whereNotIn('status', ['completed', 'closed_incomplete'])
+            ->update(['status' => 'closed_incomplete']);
 
+        // 2. Jetzt laden wir die (aktualisierten) Tasks
+        $query = Task::query();
         if ($request->has('container_id')) {
             $query->where('container_id', $request->container_id);
         }
@@ -96,8 +102,6 @@ class TaskController extends Controller
             'position' => 'required|integer',
         ]);
 
-        // Wir nutzen hier explizit die Zuweisung und save(), 
-        // damit die Position sicher in der Datenbank landet
         $task->container_id = $validated['container_id'];
         $task->position = $validated['position'];
         $task->save();

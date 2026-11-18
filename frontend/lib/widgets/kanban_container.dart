@@ -11,7 +11,13 @@ class KanbanContainerWidget extends StatelessWidget {
   final Function(int containerId) onCreateTask;
   final Function(int containerId, String name) onEditContainer;
   final Function(int containerId, String name) onDeleteContainer;
-  final Function(int taskId, String title, String desc, String status)
+  final Function(
+    int taskId,
+    String title,
+    String desc,
+    String status,
+    String? dueAt,
+  )
   onEditTask;
   final Function(int taskId, String title) onDeleteTask;
   final Function(int taskId) onAddSubtask;

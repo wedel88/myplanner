@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use App\Models\Subtask;
 
 class Task extends Model
 {
@@ -16,6 +17,9 @@ class Task extends Model
         'status',
         'due_at',
         'position'
+    ];
+    protected $casts = [
+        'due_at' => 'datetime',
     ];
 
     // Ein Task gehört zu einem Container
