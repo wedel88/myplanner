@@ -4,6 +4,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:http/http.dart' as http;
 
 import '../main.dart';
+import '../widgets/project_chat_sheet.dart'; // WICHTIG: Importiere das ChatSheet
 
 class TaskDetailScreen extends StatefulWidget {
   final Map<String, dynamic> task;
@@ -39,11 +40,8 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     super.initState();
     _task = Map.from(widget.task);
 
-    // Initialisierung der Textfelder
     _titleController = TextEditingController(text: _task['title'] ?? '');
     _descController = TextEditingController(text: _task['description'] ?? '');
-
-    // Initialisierung der Zustände
     _selectedStatus = _task['status'] ?? 'open';
 
     _selectedDueDate = _task['due_at'] != null
@@ -64,7 +62,6 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     super.dispose();
   }
 
-  // Speichert die Änderungen im Backend
   Future<void> _saveChanges() async {
     setState(() => _isSaving = true);
 
@@ -97,7 +94,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
           _isEditing = false;
           _isSaving = false;
         });
-        widget.onTaskUpdated(); // Board im Hintergrund aktualisieren
+        widget.onTaskUpdated();
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Erfolgreich gespeichert!')),
         );
@@ -130,6 +127,24 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       appBar: AppBar(
         title: const Text('Task Details'),
         actions: [
+          // NEU: Der Chat-Button öffnet das wiederverwendbare ChatSheet
+          IconButton(
+            icon: const Icon(Icons.forum, color: Colors.blue),
+            onPressed: () {
+              showModalBottomSheet(
+                context: context,
+                isScrollControlled: true,
+                shape: const RoundedRectangleBorder(
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                ),
+                builder: (_) => ChatSheet(
+                  targetId: _task['id'],
+                  targetType: 'Task',
+                  targetName: _task['title'] ?? 'Aufgabe',
+                ),
+              );
+            },
+          ),
           if (_isSaving)
             const Padding(
               padding: EdgeInsets.all(16.0),
@@ -242,7 +257,6 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
               _formatDate(_task['created_at']),
             ),
 
-            // Geplanter Start
             if (_isEditing)
               _buildEditableDateRow('Geplanter Start', _selectedStartDate, (
                 newDate,
@@ -256,7 +270,6 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                 _formatDate(_task['planned_start_at']),
               ),
 
-            // Geplantes Ende
             if (_isEditing)
               _buildEditableDateRow('Geplantes Ende', _selectedEndDate, (
                 newDate,
@@ -270,7 +283,6 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                 _formatDate(_task['planned_end_at']),
               ),
 
-            // Ablaufdatum (Due)
             if (_isEditing)
               _buildEditableDateRow('Ablaufdatum (Due)', _selectedDueDate, (
                 newDate,
@@ -287,13 +299,31 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
 
             const Divider(height: 32),
 
-            // 5. ZUWEISUNG (Platzhalter für später)
+            // 5. ZUWEISUNG
             const Text(
               'Zuweisung',
               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
             ),
             const SizedBox(height: 8),
             const Text('Noch keinem Benutzer zugewiesen (folgt in Phase 4).'),
+
+            const Divider(height: 32),
+
+            // 6. KOMMENTARE (Button zum Öffnen)
+            const Text(
+              'Kommentare',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            ),
+            const SizedBox(height: 8),
+
+            ChatSheet(
+              targetId: _task['id'],
+              targetType: 'Task',
+              targetName: _task['title'] ?? 'Aufgabe',
+              isEmbedded: true, // <-- Schaltet den BottomSheet-Modus aus
+            ),
+
+            const SizedBox(height: 32), // Platz am Ende
           ],
         ),
       ),
@@ -352,7 +382,6 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     );
   }
 
-  // Das neue Widget für die editierbaren Datumsfelder
   Widget _buildEditableDateRow(
     String label,
     DateTime? date,
@@ -390,7 +419,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
           if (date != null)
             IconButton(
               icon: const Icon(Icons.clear, color: Colors.red),
-              onPressed: () => onDateChanged(null), // Löscht das Datum
+              onPressed: () => onDateChanged(null),
               tooltip: 'Datum entfernen',
             ),
         ],

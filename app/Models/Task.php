@@ -22,10 +22,10 @@ class Task extends Model
         'position',
     ];
     protected $casts = [
-    'due_at' => 'datetime',
-    'planned_start_at' => 'datetime',
-    'planned_end_at' => 'datetime',
-];
+        'due_at' => 'datetime',
+        'planned_start_at' => 'datetime',
+        'planned_end_at' => 'datetime',
+    ];
 
     // Ein Task gehört zu einem Container
     public function container()
@@ -35,5 +35,9 @@ class Task extends Model
     public function subtasks()
     {
         return $this->hasMany(Subtask::class);
+    }
+    public function comments()
+    {
+        return $this->morphMany(Comment::class, 'commentable');
     }
 }

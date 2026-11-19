@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 
 import '../main.dart';
 import '../widgets/kanban_container.dart';
+import '../widgets/project_chat_sheet.dart';
 import 'task_detail_screen.dart';
 
 class ProjectDetailScreen extends StatefulWidget {
@@ -34,7 +35,6 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
   }
 
   Future<void> fetchBoardData({bool showLoader = false}) async {
-    // Nur beim echten Initial-Laden den Loader anzeigen, sonst im Hintergrund laufen lassen
     if (showLoader) {
       setState(() {
         isLoading = true;
@@ -405,13 +405,12 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
     String currentTitle,
     String currentDesc,
     String currentStatus,
-    String? currentDueAt, // NEU: Das aktuelle Datum (kann null sein)
+    String? currentDueAt,
   ) {
     final titleController = TextEditingController(text: currentTitle);
     final descriptionController = TextEditingController(text: currentDesc);
     String selectedStatus = currentStatus;
 
-    // Wir parsen das aktuelle Datum von der API (z.B. "2026-11-20T00:00:00.000000Z")
     DateTime? selectedDate = currentDueAt != null
         ? DateTime.tryParse(currentDueAt)
         : null;
@@ -424,7 +423,6 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
             return AlertDialog(
               title: const Text('Aufgabe bearbeiten'),
               content: SingleChildScrollView(
-                // Wichtig, falls der Dialog auf kleinen Bildschirmen zu groß wird
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -464,7 +462,6 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
                       },
                     ),
                     const SizedBox(height: 16),
-                    // NEU: Der Date-Picker
                     InkWell(
                       onTap: () async {
                         final pickedDate = await showDatePicker(
@@ -506,7 +503,6 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
                     if (newTitle.isEmpty) return;
 
                     Navigator.pop(dialogContext);
-                    // Wir übergeben das Datum als ISO-String an das Backend
                     await _updateTask(
                       taskId,
                       newTitle,
@@ -545,7 +541,7 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
           'title': title,
           'description': description,
           'status': status,
-          'due_at': dueAt, // NEU
+          'due_at': dueAt,
         }),
       );
 
@@ -652,7 +648,6 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
     }
   }
 
-  // Teilpunkt umbenennen
   Future<void> _updateSubtaskTitle(int subtaskId, String newTitle) async {
     final url = Uri.parse('$apiBaseUrl/subtasks/$subtaskId');
 
@@ -696,8 +691,6 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
 
       if (!mounted) return;
 
-      // Wir rufen hier KEIN fetchBoardData() mehr auf!
-      // Das UI hat sich durch den Drop schon lokal aktualisiert.
       if (response.statusCode != 200 && response.statusCode != 204) {
         debugPrint(
           'Fehler beim Speichern der Task-Position: ${response.statusCode}',
@@ -709,7 +702,6 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
     }
   }
 
-  // Teilpunkt löschen
   Future<void> _deleteSubtask(int subtaskId) async {
     final url = Uri.parse('$apiBaseUrl/subtasks/$subtaskId');
 
@@ -731,7 +723,6 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
   }
 
   void _showManageSubtasksDialog(Map<String, dynamic> task) {
-    // Wir holen uns eine lokale Kopie der Subtasks, damit wir sie im Dialog live bearbeiten/löschen können
     List<dynamic> subtasks = List.from(task['subtasks'] ?? []);
     final taskTitle = task['title']?.toString() ?? 'Aufgabe';
 
@@ -827,7 +818,6 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
     );
   }
 
-  // Hilfsdialog zum Umbenennen (gibt den neuen Titel per Callback zurück)
   void _showEditSubtaskDialog(
     int subtaskId,
     String currentTitle,
@@ -856,13 +846,9 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
                 final newTitle = controller.text.trim();
                 if (newTitle.isEmpty) return;
 
-                Navigator.pop(
-                  dialogContext,
-                ); // Schließt nur den kleinen Bearbeiten-Dialog
-                onSaved(newTitle); // Führt die Speicher-Funktion aus
-                await fetchBoardData(
-                  showLoader: false,
-                ); // Board im Hintergrund aktualisieren
+                Navigator.pop(dialogContext);
+                onSaved(newTitle);
+                await fetchBoardData(showLoader: false);
               },
               child: const Text('Speichern'),
             ),
@@ -893,7 +879,6 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
             ),
             onPressed: () async {
               if (_isReorderMode) {
-                // 1. SCHRITT: Modus sofort beenden (UI reagiert sofort)
                 setState(() {
                   _isReorderMode = false;
                 });
@@ -916,15 +901,30 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
                     }
                   }
                 }
-
-                // 3. SCHRITT: Daten neu laden
                 await fetchBoardData(showLoader: false);
               } else {
-                // Modus starten
                 setState(() {
                   _isReorderMode = true;
                 });
               }
+            },
+          ),
+          IconButton(
+            tooltip: 'Projekt-Chat',
+            icon: const Icon(Icons.forum),
+            onPressed: () {
+              showModalBottomSheet(
+                context: context,
+                isScrollControlled: true,
+                shape: const RoundedRectangleBorder(
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                ),
+                builder: (_) => ChatSheet(
+                  targetId: widget.projectId,
+                  targetType: 'Project',
+                  targetName: widget.projectName,
+                ),
+              );
             },
           ),
           IconButton(
@@ -985,7 +985,6 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
         },
       );
     } else {
-      // NORMAL MODUS FÜR TASKS
       return ListView.builder(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.all(8),
@@ -1015,16 +1014,15 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
     final container = containers[index] as Map<String, dynamic>;
     final containerId = int.tryParse(container['id']?.toString() ?? '') ?? 0;
 
-    // ReorderableDragStartListener sorgt dafür, dass man die Spalte anfassen kann
     final kanbanWidget = ReorderableDragStartListener(
       index: index,
-      enabled: isReorderable, // Nur ziehbar, wenn wir im Reorder-Modus sind
+      enabled: isReorderable,
       child: KanbanContainerWidget(
         key: ValueKey('container_$containerId'),
         container: container,
         index: index,
         isReorderable: isReorderable,
-        isReorderMode: isReorderable, // Blockiert Tasks im Reorder-Modus
+        isReorderMode: isReorderable,
         onTaskDropped: (task, cId, newPos) {
           if (!isReorderable) {
             final rawId = task['id'];
@@ -1033,7 +1031,6 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
                 : null;
 
             if (taskId != null && cId > 0) {
-              // 1. Lokales UI-Update
               setState(() {
                 final sourceContainer = containers.firstWhere(
                   (c) => (c['tasks'] as List).any((t) => t['id'] == taskId),
@@ -1058,7 +1055,6 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
                 }
               });
 
-              // 2. Backend im Hintergrund aufrufen
               _updateTaskOrder(taskId, cId, newPos);
             }
           }
@@ -1073,18 +1069,12 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
         onToggleSubtask: (subtaskId, currentStatus) =>
             _toggleSubtask(subtaskId, currentStatus),
         onManageSubtasks: (taskData) => _showManageSubtasksDialog(taskData),
-
-        // NEU: Das korrigierte onTaskTap-Callback
         onTaskTap: (Map<String, dynamic> taskData) {
-          // <-- taskData wird jetzt vom Container übergeben
-          final id = taskData['id'];
-          final tId = id != null ? int.tryParse(id.toString()) : null;
-
           Navigator.push(
             context,
             MaterialPageRoute(
               builder: (_) => TaskDetailScreen(
-                task: taskData, // Die geklickte Task
+                task: taskData,
                 onTaskUpdated: () => fetchBoardData(showLoader: false),
               ),
             ),

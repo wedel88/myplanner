@@ -10,9 +10,12 @@ return new class extends Migration
     {
         Schema::create('comments', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('task_id')->constrained()->onDelete('cascade');
-            $table->foreignId('user_id')->constrained()->onDelete('cascade');
-            $table->text('body');
+            // Polymorphe Beziehung (kann auf Task, Project oder später Group zeigen)
+            $table->morphs('commentable');
+            // Der Text des Kommentars
+            $table->text('content');
+            // Optional: Wer hat kommentiert? (Für später, wenn Login da ist)
+            $table->foreignId('user_id')->nullable()->constrained()->onDelete('cascade');
             $table->timestamps();
         });
     }

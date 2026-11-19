@@ -5,6 +5,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import 'project_detail_screen.dart';
+import '../widgets/project_chat_sheet.dart';
 
 class ProjectGridScreen extends StatefulWidget {
   const ProjectGridScreen({super.key});
@@ -155,12 +156,11 @@ class _ProjectGridScreenState extends State<ProjectGridScreen> {
                           context,
                           MaterialPageRoute(
                             builder: (context) => ProjectDetailScreen(
-                              projectId: project['id'], // Die ID des angeklickten Projekts
+                              projectId: project['id'],
                               projectName: project['name'] ?? 'Projekt',
                             ),
                           ),
                         ).then((_) {
-                          // Aktualisiert die Projektliste, wenn man vom Kanban-Board zurückkommt
                           _fetchProjects();
                         });
                       },
@@ -170,14 +170,95 @@ class _ProjectGridScreenState extends State<ProjectGridScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              project['name'] ?? '',
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    project['name'] ?? '',
+                                    style: const TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                // NEU: Das Drei-Punkte-Menü
+                                PopupMenuButton<String>(
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(),
+                                  icon: const Icon(Icons.more_vert, size: 20),
+                                  onSelected: (value) {
+                                    if (value == 'edit') {
+                                      _showProjectDialog(project: project);
+                                    } else if (value == 'delete') {
+                                      _deleteProject(project['id']);
+                                    } else if (value == 'comments') {
+                                      showModalBottomSheet(
+                                        context: context,
+                                        isScrollControlled: true,
+                                        shape: const RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.vertical(
+                                            top: Radius.circular(20),
+                                          ),
+                                        ),
+                                        builder: (_) => ChatSheet(
+                                          targetId: project['id'],
+                                          targetType: 'Project',
+                                          targetName:
+                                              project['name'] ?? 'Projekt',
+                                        ),
+                                      );
+                                    }
+                                  },
+                                  itemBuilder: (BuildContext context) => [
+                                    const PopupMenuItem<String>(
+                                      value: 'comments',
+                                      child: Row(
+                                        children: [
+                                          Icon(
+                                            Icons.forum,
+                                            size: 18,
+                                            color: Colors.green,
+                                          ),
+                                          SizedBox(width: 8),
+                                          Text('Kommentare'),
+                                        ],
+                                      ),
+                                    ),
+                                    const PopupMenuItem<String>(
+                                      value: 'edit',
+                                      child: Row(
+                                        children: [
+                                          Icon(
+                                            Icons.edit,
+                                            size: 18,
+                                            color: Colors.blue,
+                                          ),
+                                          SizedBox(width: 8),
+                                          Text('Bearbeiten'),
+                                        ],
+                                      ),
+                                    ),
+                                    const PopupMenuItem<String>(
+                                      value: 'delete',
+                                      child: Row(
+                                        children: [
+                                          Icon(
+                                            Icons.delete,
+                                            size: 18,
+                                            color: Colors.red,
+                                          ),
+                                          SizedBox(width: 8),
+                                          Text('Löschen'),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
                             ),
                             const SizedBox(height: 8),
                             Expanded(
@@ -190,34 +271,6 @@ class _ProjectGridScreenState extends State<ProjectGridScreen> {
                                 maxLines: 3,
                                 overflow: TextOverflow.ellipsis,
                               ),
-                            ),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.end,
-                              children: [
-                                IconButton(
-                                  icon: const Icon(
-                                    Icons.edit,
-                                    size: 16,
-                                    color: Colors.blue,
-                                  ),
-                                  onPressed: () =>
-                                      _showProjectDialog(project: project),
-                                  padding: EdgeInsets.zero,
-                                  constraints: const BoxConstraints(),
-                                ),
-                                const SizedBox(width: 12),
-                                IconButton(
-                                  icon: const Icon(
-                                    Icons.delete,
-                                    size: 16,
-                                    color: Colors.red,
-                                  ),
-                                  onPressed: () =>
-                                      _deleteProject(project['id']),
-                                  padding: EdgeInsets.zero,
-                                  constraints: const BoxConstraints(),
-                                ),
-                              ],
                             ),
                           ],
                         ),

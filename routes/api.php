@@ -47,3 +47,7 @@ Route::patch('/tasks/{task}/reorder', [TaskController::class, 'reorder']);
 
 // Für das Verschieben von Spalten (Containers)
 Route::patch('/containers/{container}/reorder', [ContainerController::class, 'reorder']);
+//Comments
+Route::get('/comments', [CommentController::class, 'index']);
+Route::post('/comments', [CommentController::class, 'store']);
+Route::delete('/comments/{comment}', [CommentController::class, 'destroy']);

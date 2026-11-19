@@ -1,5 +1,6 @@
 <?php
 
+
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
@@ -8,56 +9,49 @@ use Illuminate\Http\Request;
 
 class CommentController extends Controller
 {
-    // Alle Kommentare abrufen (optional nach task_id filtern)
+    // Kommentare für eine Task oder ein Projekt laden
     public function index(Request $request)
     {
-        $query = Comment::query();
+        $request->validate([
+            'commentable_type' => 'required|string',
+            'commentable_id' => 'required|integer',
+        ]);
 
-        if ($request->has('task_id')) {
-            $query->where('task_id', $request->task_id);
+        // Wir bauen den Klassennamen zusammen (z.B. App\Models\Task)
+        $modelClass = 'App\\Models\\' . ucfirst($request->commentable_type);
+
+        if (!class_exists($modelClass)) {
+            return response()->json(['error' => 'Modell nicht gefunden'], 404);
         }
 
-        return response()->json($query->get(), 200);
+        $commentable = $modelClass::findOrFail($request->commentable_id);
+
+        // Lade die Kommentare inklusive der User-Daten (falls vorhanden)
+        $comments = $commentable->comments()->with('user')->orderBy('created_at', 'asc')->get();
+
+        return response()->json($comments, 200);
     }
 
     // Einen neuen Kommentar erstellen
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'task_id' => 'required|exists:tasks,id',
+            'commentable_type' => 'required|string',
+            'commentable_id' => 'required|integer',
             'content' => 'required|string',
+            // user_id wird später über die Authentifizierung gesetzt
         ]);
 
-        $comment = Comment::create($validated);
+        $modelClass = 'App\\Models\\' . ucfirst($request->commentable_type);
+        $commentable = $modelClass::findOrFail($request->commentable_id);
 
-        return response()->json([
-            'message' => 'Kommentar erfolgreich erstellt!',
-            'data' => $comment
-        ], 201);
-    }
-
-    // Einen einzelnen Kommentar anzeigen
-    public function show(Comment $comment)
-    {
-        return response()->json($comment, 200);
-    }
-
-    // Einen Kommentar aktualisieren
-    public function update(Request $request, Comment $comment)
-    {
-        $validated = $request->validate([
-            'content' => 'required|string',
+        $comment = $commentable->comments()->create([
+            'content' => $validated['content'],
+            'user_id' => null, // Platzhalter für später
         ]);
 
-        $comment->update($validated);
-
-        return response()->json([
-            'message' => 'Kommentar aktualisiert',
-            'data' => $comment
-        ], 200);
+        return response()->json($comment->load('user'), 201);
     }
-
-    // Einen Kommentar löschen
     public function destroy(Comment $comment)
     {
         $comment->delete();

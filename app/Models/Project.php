@@ -19,4 +19,8 @@ class Project extends Model
     {
         return $this->hasMany(Container::class)->orderBy('position');
     }
+        public function comments()
+    {
+        return $this->morphMany(Comment::class, 'commentable');
+    }
 }

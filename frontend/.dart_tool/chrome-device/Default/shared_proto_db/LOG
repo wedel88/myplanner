@@ -1,32 +1,34 @@
-2026/11/18-19:47:24.629 6740 Reusing MANIFEST C:\Users\JAKUBP~1\AppData\Local\Temp\flutter_tools.7c86c3ae\flutter_tools_chrome_device.476262bc\Default\shared_proto_db/MANIFEST-000001
-2026/11/18-19:47:24.630 6740 Recovering log #45
-2026/11/18-19:47:24.632 6740 Reusing old log C:\Users\JAKUBP~1\AppData\Local\Temp\flutter_tools.7c86c3ae\flutter_tools_chrome_device.476262bc\Default\shared_proto_db/000045.log 
-2026/11/18-19:47:24.633 6740 Delete type=0 #3
-2026/11/18-19:47:24.633 6740 Delete type=0 #4
-2026/11/18-19:47:24.633 6740 Delete type=0 #7
-2026/11/18-19:47:24.633 6740 Delete type=2 #8
-2026/11/18-19:47:24.633 6740 Delete type=0 #10
-2026/11/18-19:47:24.633 6740 Delete type=2 #11
-2026/11/18-19:47:24.633 6740 Delete type=0 #13
-2026/11/18-19:47:24.633 6740 Delete type=2 #14
-2026/11/18-19:47:24.633 6740 Delete type=0 #16
-2026/11/18-19:47:24.633 6740 Delete type=2 #17
-2026/11/18-19:47:24.633 6740 Delete type=0 #19
-2026/11/18-19:47:24.633 6740 Delete type=2 #21
-2026/11/18-19:47:24.634 6740 Delete type=0 #23
-2026/11/18-19:47:24.634 6740 Delete type=2 #24
-2026/11/18-19:47:24.634 6740 Delete type=0 #26
-2026/11/18-19:47:24.634 6740 Delete type=2 #27
-2026/11/18-19:47:24.634 6740 Delete type=0 #29
-2026/11/18-19:47:24.634 6740 Delete type=2 #30
-2026/11/18-19:47:24.634 6740 Delete type=0 #32
-2026/11/18-19:47:24.634 6740 Delete type=2 #34
-2026/11/18-19:47:24.634 6740 Delete type=0 #36
-2026/11/18-19:47:24.634 6740 Delete type=2 #37
-2026/11/18-19:47:24.634 6740 Delete type=0 #39
-2026/11/18-19:47:24.634 6740 Delete type=2 #40
-2026/11/18-19:47:24.634 6740 Delete type=0 #42
-2026/11/18-19:47:24.634 6740 Delete type=2 #43
-2026/11/18-19:47:36.525 6740 Level-0 table #50: started
-2026/11/18-19:47:36.530 6740 Level-0 table #50: 133558 bytes OK
-2026/11/18-19:47:36.533 6740 Delete type=0 #45
+2026/11/19-12:28:53.664 65e4 Reusing MANIFEST C:\Users\JAKUBP~1\AppData\Local\Temp\flutter_tools.cc00ee94\flutter_tools_chrome_device.acc5ea9\Default\shared_proto_db/MANIFEST-000001
+2026/11/19-12:28:53.665 65e4 Recovering log #52
+2026/11/19-12:28:53.667 65e4 Reusing old log C:\Users\JAKUBP~1\AppData\Local\Temp\flutter_tools.cc00ee94\flutter_tools_chrome_device.acc5ea9\Default\shared_proto_db/000052.log 
+2026/11/19-12:28:53.668 65e4 Delete type=0 #3
+2026/11/19-12:28:53.668 65e4 Delete type=0 #4
+2026/11/19-12:28:53.668 65e4 Delete type=0 #7
+2026/11/19-12:28:53.668 65e4 Delete type=2 #8
+2026/11/19-12:28:53.668 65e4 Delete type=0 #10
+2026/11/19-12:28:53.668 65e4 Delete type=2 #11
+2026/11/19-12:28:53.668 65e4 Delete type=0 #13
+2026/11/19-12:28:53.668 65e4 Delete type=2 #14
+2026/11/19-12:28:53.668 65e4 Delete type=0 #16
+2026/11/19-12:28:53.668 65e4 Delete type=2 #17
+2026/11/19-12:28:53.668 65e4 Delete type=0 #19
+2026/11/19-12:28:53.668 65e4 Delete type=2 #21
+2026/11/19-12:28:53.668 65e4 Delete type=0 #23
+2026/11/19-12:28:53.668 65e4 Delete type=2 #24
+2026/11/19-12:28:53.668 65e4 Delete type=0 #26
+2026/11/19-12:28:53.668 65e4 Delete type=2 #27
+2026/11/19-12:28:53.668 65e4 Delete type=0 #29
+2026/11/19-12:28:53.668 65e4 Delete type=2 #30
+2026/11/19-12:28:53.668 65e4 Delete type=0 #32
+2026/11/19-12:28:53.668 65e4 Delete type=2 #34
+2026/11/19-12:28:53.668 65e4 Delete type=0 #36
+2026/11/19-12:28:53.668 65e4 Delete type=2 #37
+2026/11/19-12:28:53.668 65e4 Delete type=0 #39
+2026/11/19-12:28:53.668 65e4 Delete type=2 #40
+2026/11/19-12:28:53.668 65e4 Delete type=0 #42
+2026/11/19-12:28:53.668 65e4 Delete type=2 #43
+2026/11/19-12:28:53.668 65e4 Delete type=0 #45
+2026/11/19-12:28:53.668 65e4 Delete type=0 #49
+2026/11/19-12:29:05.652 18b4 Level-0 table #56: started
+2026/11/19-12:29:05.656 18b4 Level-0 table #56: 135443 bytes OK
+2026/11/19-12:29:05.658 18b4 Delete type=0 #52
