@@ -4,7 +4,8 @@ import 'package:material_ui/material_ui.dart';
 import 'package:http/http.dart' as http;
 
 import '../main.dart';
-import '../widgets/project_chat_sheet.dart'; // WICHTIG: Importiere das ChatSheet
+import '../widgets/project_chat_sheet.dart';
+import '../services/auth_service.dart';
 
 class TaskDetailScreen extends StatefulWidget {
   final Map<String, dynamic> task;
@@ -66,10 +67,12 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     setState(() => _isSaving = true);
 
     final url = Uri.parse('$apiBaseUrl/tasks/${_task['id']}');
+    final headers = await AuthService.getHeaders(); // <-- NEU
+
     try {
-      final response = await http.put(
+      final response = await http.post(
         url,
-        headers: {'Content-Type': 'application/json'},
+        headers: headers,
         body: jsonEncode({
           'title': _titleController.text.trim(),
           'description': _descController.text.trim(),

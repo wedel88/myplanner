@@ -6,6 +6,8 @@ import 'package:http/http.dart' as http;
 
 import 'project_detail_screen.dart';
 import '../widgets/project_chat_sheet.dart';
+import '../services/auth_service.dart'; // <-- WICHTIG: Importiert!
+import 'login_screen.dart'; // <-- WICHTIG für den Logout-Button
 
 class ProjectGridScreen extends StatefulWidget {
   const ProjectGridScreen({super.key});
@@ -18,7 +20,6 @@ class _ProjectGridScreenState extends State<ProjectGridScreen> {
   List<dynamic> _projects = [];
   bool _isLoading = true;
 
-  // Passe hier deine API-URL an
   final String baseUrl = 'http://127.0.0.1:8000/api';
 
   @override
@@ -29,13 +30,30 @@ class _ProjectGridScreenState extends State<ProjectGridScreen> {
 
   // Projekte von der API laden
   Future<void> _fetchProjects() async {
+    final headers = await AuthService.getHeaders(); // Token holen
+
     try {
-      final response = await http.get(Uri.parse('$baseUrl/projects'));
+      final response = await http.get(
+        Uri.parse('$baseUrl/projects'),
+        headers: headers,
+      );
+
       if (response.statusCode == 200) {
         setState(() {
           _projects = json.decode(response.body);
           _isLoading = false;
         });
+      } else {
+        // Wenn der Token ungültig ist (401), zurück zum Login
+        if (response.statusCode == 401) {
+          if (!mounted) return;
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => const LoginScreen()),
+          );
+        } else {
+          setState(() => _isLoading = false);
+        }
       }
     } catch (e) {
       setState(() => _isLoading = false);
@@ -44,8 +62,13 @@ class _ProjectGridScreenState extends State<ProjectGridScreen> {
 
   // Projekt löschen
   Future<void> _deleteProject(int id) async {
-    final response = await http.delete(Uri.parse('$baseUrl/projects/$id'));
-    if (response.statusCode == 200) {
+    final headers = await AuthService.getHeaders();
+    final response = await http.delete(
+      Uri.parse('$baseUrl/projects/$id'),
+      headers: headers,
+    );
+
+    if (response.statusCode == 200 || response.statusCode == 204) {
       _fetchProjects();
     }
   }
@@ -92,16 +115,18 @@ class _ProjectGridScreenState extends State<ProjectGridScreen> {
 
               Navigator.pop(context);
 
+              final headers = await AuthService.getHeaders(); // Token holen
+
               if (isEditing) {
                 await http.put(
                   Uri.parse('$baseUrl/projects/${project['id']}'),
-                  headers: {'Content-Type': 'application/json'},
+                  headers: headers, // <-- Hier richtig eingefügt
                   body: json.encode({'name': name, 'description': desc}),
                 );
               } else {
                 await http.post(
                   Uri.parse('$baseUrl/projects'),
-                  headers: {'Content-Type': 'application/json'},
+                  headers: headers, // <-- Hier richtig eingefügt
                   body: json.encode({'name': name, 'description': desc}),
                 );
               }
@@ -124,6 +149,19 @@ class _ProjectGridScreenState extends State<ProjectGridScreen> {
             icon: const Icon(Icons.add),
             onPressed: () => _showProjectDialog(),
             tooltip: 'Projekt hinzufügen',
+          ),
+          // NEU: Der Logout-Button
+          IconButton(
+            icon: const Icon(Icons.logout, color: Colors.red),
+            onPressed: () async {
+              await AuthService.deleteToken();
+              if (!mounted) return;
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (_) => const LoginScreen()),
+              );
+            },
+            tooltip: 'Ausloggen',
           ),
         ],
       ),
@@ -185,7 +223,6 @@ class _ProjectGridScreenState extends State<ProjectGridScreen> {
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
-                                // NEU: Das Drei-Punkte-Menü
                                 PopupMenuButton<String>(
                                   padding: EdgeInsets.zero,
                                   constraints: const BoxConstraints(),

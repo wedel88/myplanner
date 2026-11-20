@@ -7,6 +7,7 @@ import '../main.dart';
 import '../widgets/kanban_container.dart';
 import '../widgets/project_chat_sheet.dart';
 import 'task_detail_screen.dart';
+import '../services/auth_service.dart';
 
 class ProjectDetailScreen extends StatefulWidget {
   final int projectId;
@@ -45,9 +46,10 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
     final url = Uri.parse(
       '$apiBaseUrl/projects/${widget.projectId}/containers',
     );
+    final headers = await AuthService.getHeaders();
 
     try {
-      final response = await http.get(url);
+      final response = await http.get(url, headers: headers);
 
       if (!mounted) return;
 
@@ -112,11 +114,12 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
 
   Future<void> _createContainer(String name) async {
     final url = Uri.parse('$apiBaseUrl/containers');
+    final headers = await AuthService.getHeaders();
 
     try {
       final response = await http.post(
         url,
-        headers: {'Content-Type': 'application/json'},
+        headers: headers,
         body: jsonEncode({'project_id': widget.projectId, 'name': name}),
       );
 
@@ -171,11 +174,12 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
 
   Future<void> _updateContainer(int containerId, String name) async {
     final url = Uri.parse('$apiBaseUrl/containers/$containerId');
+    final headers = await AuthService.getHeaders(); // <-- NEU
 
     try {
       final response = await http.put(
         url,
-        headers: {'Content-Type': 'application/json'},
+        headers: headers,
         body: jsonEncode({'name': name}),
       );
 
@@ -226,9 +230,9 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
 
   Future<void> _deleteContainer(int containerId) async {
     final url = Uri.parse('$apiBaseUrl/containers/$containerId');
-
+    final headers = await AuthService.getHeaders();
     try {
-      final response = await http.delete(url);
+      final response = await http.delete(url, headers: headers);
 
       if (!mounted) return;
 
@@ -277,10 +281,10 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
 
   Future<void> _deleteTask(int taskId) async {
     final url = Uri.parse('$apiBaseUrl/tasks/$taskId');
+    final headers = await AuthService.getHeaders();
 
     try {
-      final response = await http.delete(url);
-
+      final response = await http.delete(url, headers: headers);
       if (!mounted) return;
 
       if (response.statusCode == 200 || response.statusCode == 204) {
@@ -350,11 +354,12 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
     String description,
   ) async {
     final url = Uri.parse('$apiBaseUrl/tasks');
+    final headers = await AuthService.getHeaders(); // <-- NEU
 
     try {
       final response = await http.post(
         url,
-        headers: {'Content-Type': 'application/json'},
+        headers: headers,
         body: jsonEncode({
           'container_id': containerId,
           'title': title,
@@ -382,11 +387,12 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
     int newPosition,
   ) async {
     final url = Uri.parse('$apiBaseUrl/containers/$containerId/reorder');
+    final headers = await AuthService.getHeaders(); // <-- NEU
 
     try {
       final response = await http.patch(
         url,
-        headers: {'Content-Type': 'application/json'},
+        headers: headers,
         body: jsonEncode({'position': newPosition}),
       );
 
@@ -532,11 +538,12 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
     String? dueAt,
   ) async {
     final url = Uri.parse('$apiBaseUrl/tasks/$taskId');
+    final headers = await AuthService.getHeaders(); // <-- NEU
 
     try {
       final response = await http.put(
         url,
-        headers: {'Content-Type': 'application/json'},
+        headers: headers,
         body: jsonEncode({
           'title': title,
           'description': description,
@@ -598,11 +605,12 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
 
   Future<void> _createSubtask(int taskId, String title) async {
     final url = Uri.parse('$apiBaseUrl/subtasks');
+    final headers = await AuthService.getHeaders(); // <-- NEU
 
     try {
       final response = await http.post(
         url,
-        headers: {'Content-Type': 'application/json'},
+        headers: headers,
         body: jsonEncode({
           'task_id': taskId,
           'title': title,
@@ -627,11 +635,12 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
 
   Future<void> _toggleSubtask(int subtaskId, bool currentStatus) async {
     final url = Uri.parse('$apiBaseUrl/subtasks/$subtaskId');
+    final headers = await AuthService.getHeaders(); // <-- NEU
 
     try {
       final response = await http.put(
         url,
-        headers: {'Content-Type': 'application/json'},
+        headers: headers,
         body: jsonEncode({'is_completed': !currentStatus}),
       );
 
@@ -650,11 +659,12 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
 
   Future<void> _updateSubtaskTitle(int subtaskId, String newTitle) async {
     final url = Uri.parse('$apiBaseUrl/subtasks/$subtaskId');
+    final headers = await AuthService.getHeaders(); // <-- NEU
 
     try {
       final response = await http.put(
         url,
-        headers: {'Content-Type': 'application/json'},
+        headers: headers,
         body: jsonEncode({'title': newTitle}),
       );
 
@@ -678,11 +688,12 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
     int newPosition,
   ) async {
     final url = Uri.parse('$apiBaseUrl/tasks/$taskId/reorder');
+    final headers = await AuthService.getHeaders(); // <-- NEU
 
     try {
       final response = await http.patch(
         url,
-        headers: {'Content-Type': 'application/json'},
+        headers: headers,
         body: jsonEncode({
           'container_id': containerId,
           'position': newPosition,
@@ -704,10 +715,10 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
 
   Future<void> _deleteSubtask(int subtaskId) async {
     final url = Uri.parse('$apiBaseUrl/subtasks/$subtaskId');
+    final headers = await AuthService.getHeaders(); // <-- NEU
 
     try {
-      final response = await http.delete(url);
-
+      final response = await http.get(url, headers: headers);
       if (!mounted) return;
 
       if (response.statusCode == 200 || response.statusCode == 204) {

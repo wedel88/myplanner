@@ -11,8 +11,7 @@ class ProjectController extends Controller
     // Alle Projekte abrufen
     public function index()
     {
-        // Sortiert die Projekte automatisch nach sort_order aufsteigend
-        return response()->json(Project::orderBy('sort_order')->get(), 200);
+        return response()->json(auth()->user()->projects, 200);
     }
 
     // Ein neues Projekt erstellen
@@ -23,12 +22,9 @@ class ProjectController extends Controller
             'description' => 'nullable|string',
         ]);
 
-        $project = Project::create($validated);
+        $project = auth()->user()->projects()->create($validated);
 
-        return response()->json([
-            'message' => 'Projekt erfolgreich erstellt!',
-            'data' => $project
-        ], 201);
+        return response()->json($project, 201);
     }
 
     // Ein einzelnes Projekt mit Containern und Aufgaben anzeigen

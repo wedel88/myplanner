@@ -4,6 +4,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:http/http.dart' as http;
 
 import '../main.dart';
+import '../services/auth_service.dart';
 
 class ChatSheet extends StatefulWidget {
   final int targetId;
@@ -52,7 +53,8 @@ class _ChatSheetState extends State<ChatSheet> {
     );
 
     try {
-      final response = await http.get(url);
+      final headers = await AuthService.getHeaders();
+      final response = await http.get(url, headers: headers);
       if (response.statusCode == 200) {
         setState(() {
           _comments = jsonDecode(response.body);
@@ -72,11 +74,12 @@ class _ChatSheetState extends State<ChatSheet> {
 
     _commentController.clear();
     final url = Uri.parse('$apiBaseUrl/comments');
+    final headers = await AuthService.getHeaders(); // <-- NEU: Token holen
 
     try {
       final response = await http.post(
         url,
-        headers: {'Content-Type': 'application/json'},
+        headers: headers, // <-- Geändert: headers statt dem alten {'Content-Type': ...}
         body: jsonEncode({
           'commentable_type': widget.targetType,
           'commentable_id': widget.targetId,
@@ -95,7 +98,8 @@ class _ChatSheetState extends State<ChatSheet> {
   Future<void> _deleteComment(int commentId) async {
     final url = Uri.parse('$apiBaseUrl/comments/$commentId');
     try {
-      final response = await http.delete(url);
+      final headers = await AuthService.getHeaders();
+      final response = await http.get(url, headers: headers);
       if (response.statusCode == 200) {
         await _fetchComments();
       }

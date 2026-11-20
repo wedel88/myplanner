@@ -1,6 +1,10 @@
-import 'package:material_ui/material_ui.dart'; // Enthält bereits die Localizations
+import 'package:material_ui/material_ui.dart';
 
+import 'screens/login_screen.dart';
 import 'screens/project_grid_screen.dart';
+import 'services/auth_service.dart';
+
+// WICHTIG: Kein flutter_localizations Import mehr!
 
 const String apiBaseUrl = 'http://127.0.0.1:8000/api';
 
@@ -16,14 +20,51 @@ class MyPlannerApp extends StatelessWidget {
     return MaterialApp(
       title: 'MyPlanner',
       debugShowCheckedModeBanner: false,
-      // NEU: Nutze die Aggregat-Eigenschaft aus material_ui
+      // Der Delegates-Parameter kommt jetzt ausschließlich aus material_ui
       localizationsDelegates: GlobalMaterialLocalizations.delegates,
       supportedLocales: const [Locale('de'), Locale('en')],
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
         useMaterial3: true,
       ),
-      home: const ProjectGridScreen(),
+      home: const AuthCheckScreen(),
     );
+  }
+}
+
+class AuthCheckScreen extends StatefulWidget {
+  const AuthCheckScreen({super.key});
+
+  @override
+  State<AuthCheckScreen> createState() => _AuthCheckScreenState();
+}
+
+class _AuthCheckScreenState extends State<AuthCheckScreen> {
+  @override
+  void initState() {
+    super.initState();
+    _checkAuth();
+  }
+
+  Future<void> _checkAuth() async {
+    final token = await AuthService.getToken();
+    if (!mounted) return;
+
+    if (token != null) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const ProjectGridScreen()),
+      );
+    } else {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const LoginScreen()),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return const Scaffold(body: Center(child: CircularProgressIndicator()));
   }
 }
