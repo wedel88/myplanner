@@ -20,7 +20,7 @@ Route::post('/login', [AuthController::class, 'login']);
 // GESCHÜTZTE ROUTEN (Nur mit Token)
 // ==========================================
 Route::middleware('auth:sanctum')->group(function () {
-    
+
     // User-Auth
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/me', [AuthController::class, 'me']);
@@ -30,6 +30,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/projects/{project}/containers', [ProjectController::class, 'getContainersWithTasks']);
     Route::post('/projects/{project}/containers', [ContainerController::class, 'store']);
     Route::post('/projects/reorder', [ProjectController::class, 'reorder']);
+    // Route zum Hinzufügen eines Mitglieds zu einem Projekt
+    Route::post('/projects/{project}/members', [ProjectController::class, 'addMember']);
 
     // Container (Spalten)
     Route::apiResource('containers', ContainerController::class);

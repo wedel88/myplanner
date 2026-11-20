@@ -25,8 +25,14 @@ class User extends Authenticatable
     protected $casts = [
         'email_verified_at' => 'datetime',
     ];
-        public function projects()
+    public function projects()
     {
         return $this->hasMany(Project::class);
+    }
+
+    // Projekte, in denen der User Mitglied ist (Many-to-Many)
+    public function sharedProjects()
+    {
+        return $this->belongsToMany(Project::class);
     }
 }

@@ -39,7 +39,6 @@ class CommentController extends Controller
             'commentable_type' => 'required|string',
             'commentable_id' => 'required|integer',
             'content' => 'required|string',
-            // user_id wird später über die Authentifizierung gesetzt
         ]);
 
         $modelClass = 'App\\Models\\' . ucfirst($request->commentable_type);
@@ -47,13 +46,18 @@ class CommentController extends Controller
 
         $comment = $commentable->comments()->create([
             'content' => $validated['content'],
-            'user_id' => null, // Platzhalter für später
+            'user_id' => auth()->id(), // <-- NEU: Der eingeloggte User
         ]);
 
         return response()->json($comment->load('user'), 201);
     }
     public function destroy(Comment $comment)
     {
+        // Prüfen, ob der eingeloggte User der Autor des Kommentars ist
+        if ($comment->user_id !== auth()->id()) {
+            return response()->json(['error' => 'Du kannst nur deine eigenen Kommentare löschen.'], 403);
+        }
+
         $comment->delete();
         return response()->json(['message' => 'Kommentar gelöscht'], 200);
     }

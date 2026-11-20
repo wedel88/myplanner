@@ -31,10 +31,18 @@ class _ChatSheetState extends State<ChatSheet> {
   final FocusNode _focusNode = FocusNode();
   final ScrollController _scrollController = ScrollController();
 
+  int? _currentUserId;
+
   @override
   void initState() {
     super.initState();
+    _loadCurrentUser();
     _fetchComments(showLoader: true);
+  }
+
+  Future<void> _loadCurrentUser() async {
+    final id = await AuthService.getCurrentUserId();
+    setState(() => _currentUserId = id);
   }
 
   @override
@@ -192,6 +200,9 @@ class _ChatSheetState extends State<ChatSheet> {
             ? "${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')} Uhr"
             : '';
 
+        // NEU: Prüfen, ob der Kommentar vom aktuell eingeloggten User stammt
+        final isMyComment = comment['user_id'] == _currentUserId;
+
         return Padding(
           padding: const EdgeInsets.only(bottom: 12.0),
           child: Column(
@@ -218,40 +229,43 @@ class _ChatSheetState extends State<ChatSheet> {
                     style: const TextStyle(color: Colors.grey, fontSize: 11),
                   ),
                   const Spacer(),
-                  InkWell(
-                    onTap: () async {
-                      final confirm = await showDialog<bool>(
-                        context: context,
-                        builder: (ctx) => AlertDialog(
-                          title: const Text('Kommentar löschen?'),
-                          content: const Text(
-                            'Möchtest du diesen Kommentar wirklich löschen?',
-                          ),
-                          actions: [
-                            TextButton(
-                              onPressed: () => Navigator.pop(ctx, false),
-                              child: const Text('Abbrechen'),
+
+                  // NEU: Den Mülleimer nur anzeigen, wenn es mein Kommentar ist
+                  if (isMyComment)
+                    InkWell(
+                      onTap: () async {
+                        final confirm = await showDialog<bool>(
+                          context: context,
+                          builder: (ctx) => AlertDialog(
+                            title: const Text('Kommentar löschen?'),
+                            content: const Text(
+                              'Möchtest du diesen Kommentar wirklich löschen?',
                             ),
-                            TextButton(
-                              onPressed: () => Navigator.pop(ctx, true),
-                              child: const Text(
-                                'Löschen',
-                                style: TextStyle(color: Colors.red),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(ctx, false),
+                                child: const Text('Abbrechen'),
                               ),
-                            ),
-                          ],
-                        ),
-                      );
-                      if (confirm == true && comment['id'] != null) {
-                        await _deleteComment(comment['id']);
-                      }
-                    },
-                    child: const Icon(
-                      Icons.delete_outline,
-                      size: 16,
-                      color: Colors.red,
+                              TextButton(
+                                onPressed: () => Navigator.pop(ctx, true),
+                                child: const Text(
+                                  'Löschen',
+                                  style: TextStyle(color: Colors.red),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                        if (confirm == true && comment['id'] != null) {
+                          await _deleteComment(comment['id']);
+                        }
+                      },
+                      child: const Icon(
+                        Icons.delete_outline,
+                        size: 16,
+                        color: Colors.red,
+                      ),
                     ),
-                  ),
                 ],
               ),
               const SizedBox(height: 4),

@@ -874,12 +874,82 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
         .showSnackBar(SnackBar(content: Text(message)));
   }
 
+  void _showInviteDialog() {
+    final emailController = TextEditingController();
+
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Teammitglied einladen'),
+          content: TextField(
+            controller: emailController,
+            decoration: const InputDecoration(
+              labelText: 'E-Mail-Adresse',
+              hintText: 'z.B. max@test.de',
+            ),
+            keyboardType: TextInputType.emailAddress,
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Abbrechen'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                final email = emailController.text.trim();
+                if (email.isEmpty) return;
+
+                Navigator.pop(dialogContext);
+                await _inviteMember(email);
+              },
+              child: const Text('Einladen'),
+            ),
+          ],
+        );
+      },
+    ).then((_) => emailController.dispose());
+  }
+
+  Future<void> _inviteMember(String email) async {
+    final url = Uri.parse('$apiBaseUrl/projects/${widget.projectId}/members');
+    final headers = await AuthService.getHeaders();
+
+    try {
+      final response = await http.post(
+        url,
+        headers: headers,
+        body: jsonEncode({'email': email}),
+      );
+
+      if (!mounted) return;
+
+      if (response.statusCode == 200) {
+        _showMessage('Mitglied erfolgreich hinzugefügt!');
+      } else {
+        // Fehler vom Backend auslesen (z.B. "User nicht gefunden")
+        final errorData = jsonDecode(response.body);
+        final errorMsg =
+            errorData['message'] ?? errorData['error'] ?? 'Unbekannter Fehler';
+        _showMessage('Fehler: $errorMsg');
+      }
+    } catch (e) {
+      if (!mounted) return;
+      _showMessage('Verbindungsfehler: $e');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.projectName),
         actions: [
+          IconButton(
+            tooltip: 'Mitglied einladen',
+            icon: const Icon(Icons.person_add),
+            onPressed: () => _showInviteDialog(),
+          ),
           IconButton(
             tooltip: _isReorderMode
                 ? 'Ordnungs-Modus beenden'

@@ -33,6 +33,8 @@ class AuthService {
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         await saveToken(data['access_token']);
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setInt('user_id', data['user']['id']);
         return true;
       }
     } catch (e) {
@@ -48,6 +50,11 @@ class AuthService {
       'Accept': 'application/json',
       if (token != null) 'Authorization': 'Bearer $token',
     };
+  }
+
+  static Future<int?> getCurrentUserId() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getInt('user_id');
   }
 
   static Future<bool> register(
@@ -71,6 +78,8 @@ class AuthService {
       if (response.statusCode == 201) {
         final data = jsonDecode(response.body);
         await saveToken(data['access_token']);
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setInt('user_id', data['user']['id']);
         return true;
       }
     } catch (e) {
