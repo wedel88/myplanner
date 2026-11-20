@@ -9,6 +9,7 @@ import '../widgets/project_chat_sheet.dart';
 import '../services/auth_service.dart'; // <-- WICHTIG: Importiert!
 import 'login_screen.dart'; // <-- WICHTIG für den Logout-Button
 import 'user_dashboard_screen.dart';
+import 'profile_screen.dart';
 
 class ProjectGridScreen extends StatefulWidget {
   const ProjectGridScreen({super.key});
@@ -144,87 +145,37 @@ class _ProjectGridScreenState extends State<ProjectGridScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        backgroundColor:
-            Colors.white, // Hebt die AppBar klar vom Hintergrund ab
-        elevation: 2, // Schafft einen leichten Schatten für Tiefe
-        iconTheme: const IconThemeData(color: Colors.black87),
-        title: const Text(
-          'Meine Projekte',
-          style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold),
-        ),
+        title: const Text('Meine Projekte'),
         actions: [
-          // ➕ Plus-Button für neue Projekte (jetzt schön hervorgehoben in Blau)
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 8.0),
-            child: Container(
-              decoration: BoxDecoration(
-                color: Colors.blue.shade50,
-                shape: BoxShape.circle,
-                border: Border.all(color: Colors.blue.shade200, width: 1),
-              ),
-              child: IconButton(
-                icon: const Icon(Icons.add, size: 20, color: Colors.blue),
-                onPressed: () => _showProjectDialog(),
-                tooltip: 'Projekt hinzufügen',
-              ),
-            ),
+          // Navigation zum Dashboard
+          IconButton(
+            icon: const Icon(Icons.dashboard_outlined),
+            tooltip: 'Dashboard',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const UserDashboardScreen()),
+              );
+            },
           ),
-          // 📊 Button zum projektübergreifenden Dashboard
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 8.0),
-            child: Container(
-              decoration: BoxDecoration(
-                color: Colors.indigo.shade50,
-                shape: BoxShape.circle,
-                border: Border.all(color: Colors.indigo.shade200, width: 1),
-              ),
-              child: IconButton(
-                icon: const Icon(
-                  Icons.dashboard,
-                  size: 20,
-                  color: Colors.indigo,
-                ),
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const UserDashboardScreen(),
-                    ),
-                  );
-                },
-                tooltip: 'Zum Dashboard',
-              ),
-            ),
-          ),
-          // Logout-Button (mit rotem Akzent-Kreis für die Warn-Funktion)
-          Padding(
-            padding: const EdgeInsets.only(
-              left: 4.0,
-              right: 12.0,
-              top: 8.0,
-              bottom: 8.0,
-            ),
-            child: Container(
-              decoration: BoxDecoration(
-                color: Colors.red.shade50,
-                shape: BoxShape.circle,
-                border: Border.all(color: Colors.red.shade200, width: 1),
-              ),
-              child: IconButton(
-                icon: const Icon(Icons.logout, size: 20, color: Colors.red),
-                onPressed: () async {
-                  await AuthService.deleteToken();
-                  if (!mounted) return;
-                  Navigator.pushReplacement(
-                    context,
-                    MaterialPageRoute(builder: (_) => const LoginScreen()),
-                  );
-                },
-                tooltip: 'Ausloggen',
-              ),
-            ),
+          // Navigation zum Profil
+          IconButton(
+            icon: const Icon(Icons.person_outline),
+            tooltip: 'Mein Profil',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const ProfileScreen()),
+              );
+            },
           ),
         ],
+      ),
+      // 👉 Der Plus-Button für neue Projekte
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _showProjectDialog,
+        icon: const Icon(Icons.add),
+        label: const Text('Neues Projekt'),
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())

@@ -6,6 +6,8 @@ import 'package:http/http.dart' as http;
 import '../main.dart';
 import '../services/auth_service.dart';
 import 'project_detail_screen.dart';
+import 'profile_screen.dart';
+import 'project_grid_screen.dart';
 
 class UserDashboardScreen extends StatefulWidget {
   const UserDashboardScreen({super.key});
@@ -137,6 +139,30 @@ class _UserDashboardScreenState extends State<UserDashboardScreen> {
         title: const Text('Mein Dashboard'),
         elevation: 2,
         actions: [
+          IconButton(
+            icon: const Icon(Icons.grid_view_rounded),
+            tooltip: 'Projekte (Home)',
+            onPressed: () {
+              Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const ProjectGridScreen(),
+                ), // Hier den echten Klassennamen einsetzen!
+                (route) => false,
+              );
+            },
+          ),
+          // 3. Zum Profil wechseln
+          IconButton(
+            icon: const Icon(Icons.person_outline),
+            tooltip: 'Mein Profil',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const ProfileScreen()),
+              );
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.refresh),
             tooltip: 'Aktualisieren',

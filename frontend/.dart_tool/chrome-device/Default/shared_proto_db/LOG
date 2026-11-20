@@ -1,50 +1,7 @@
-2026/11/20-14:49:49.807 3c38 Reusing MANIFEST C:\Users\JAKUBP~1\AppData\Local\Temp\flutter_tools.cf2aefc3\flutter_tools_chrome_device.fa4872f2\Default\shared_proto_db/MANIFEST-000001
-2026/11/20-14:49:49.808 3c38 Recovering log #78
-2026/11/20-14:49:49.810 3c38 Reusing old log C:\Users\JAKUBP~1\AppData\Local\Temp\flutter_tools.cf2aefc3\flutter_tools_chrome_device.fa4872f2\Default\shared_proto_db/000078.log 
-2026/11/20-14:49:49.810 3c38 Delete type=0 #3
-2026/11/20-14:49:49.810 3c38 Delete type=0 #4
-2026/11/20-14:49:49.810 3c38 Delete type=0 #7
-2026/11/20-14:49:49.810 3c38 Delete type=2 #8
-2026/11/20-14:49:49.810 3c38 Delete type=0 #10
-2026/11/20-14:49:49.810 3c38 Delete type=2 #11
-2026/11/20-14:49:49.810 3c38 Delete type=0 #13
-2026/11/20-14:49:49.810 3c38 Delete type=2 #14
-2026/11/20-14:49:49.811 3c38 Delete type=0 #16
-2026/11/20-14:49:49.811 3c38 Delete type=2 #17
-2026/11/20-14:49:49.811 3c38 Delete type=0 #19
-2026/11/20-14:49:49.811 3c38 Delete type=2 #21
-2026/11/20-14:49:49.811 3c38 Delete type=0 #23
-2026/11/20-14:49:49.811 3c38 Delete type=2 #24
-2026/11/20-14:49:49.811 3c38 Delete type=0 #26
-2026/11/20-14:49:49.811 3c38 Delete type=2 #27
-2026/11/20-14:49:49.811 3c38 Delete type=0 #29
-2026/11/20-14:49:49.811 3c38 Delete type=2 #30
-2026/11/20-14:49:49.811 3c38 Delete type=0 #32
-2026/11/20-14:49:49.811 3c38 Delete type=2 #34
-2026/11/20-14:49:49.811 3c38 Delete type=0 #36
-2026/11/20-14:49:49.811 3c38 Delete type=2 #37
-2026/11/20-14:49:49.811 3c38 Delete type=0 #39
-2026/11/20-14:49:49.811 3c38 Delete type=2 #40
-2026/11/20-14:49:49.811 3c38 Delete type=0 #42
-2026/11/20-14:49:49.811 3c38 Delete type=2 #43
-2026/11/20-14:49:49.811 3c38 Delete type=0 #45
-2026/11/20-14:49:49.811 3c38 Delete type=2 #47
-2026/11/20-14:49:49.811 3c38 Delete type=0 #49
-2026/11/20-14:49:49.811 3c38 Delete type=2 #50
-2026/11/20-14:49:49.811 3c38 Delete type=0 #52
-2026/11/20-14:49:49.811 3c38 Delete type=2 #53
-2026/11/20-14:49:49.811 3c38 Delete type=0 #55
-2026/11/20-14:49:49.811 3c38 Delete type=2 #56
-2026/11/20-14:49:49.811 3c38 Delete type=0 #58
-2026/11/20-14:49:49.811 3c38 Delete type=2 #60
-2026/11/20-14:49:49.811 3c38 Delete type=0 #62
-2026/11/20-14:49:49.811 3c38 Delete type=2 #63
-2026/11/20-14:49:49.811 3c38 Delete type=0 #65
-2026/11/20-14:49:49.811 3c38 Delete type=2 #66
-2026/11/20-14:49:49.811 3c38 Delete type=0 #68
-2026/11/20-14:49:49.811 3c38 Delete type=2 #69
-2026/11/20-14:49:49.811 3c38 Delete type=0 #71
-2026/11/20-14:49:49.811 3c38 Delete type=0 #75
-2026/11/20-14:50:03.177 636c Level-0 table #82: started
-2026/11/20-14:50:03.181 636c Level-0 table #82: 134920 bytes OK
-2026/11/20-14:50:03.183 636c Delete type=0 #78
+2026/11/20-21:13:56.716 31ac Reusing MANIFEST C:\Users\JAKUBP~1\AppData\Local\Temp\flutter_tools.cc0effd5\flutter_tools_chrome_device.5e4c7846\Default\shared_proto_db/MANIFEST-000001
+2026/11/20-21:13:56.717 31ac Recovering log #13
+2026/11/20-21:13:56.718 31ac Reusing old log C:\Users\JAKUBP~1\AppData\Local\Temp\flutter_tools.cc0effd5\flutter_tools_chrome_device.5e4c7846\Default\shared_proto_db/000013.log 
+2026/11/20-21:13:56.719 31ac Delete type=0 #3
+2026/11/20-21:13:56.719 31ac Delete type=0 #4
+2026/11/20-21:13:56.719 31ac Delete type=0 #7
+2026/11/20-21:13:56.719 31ac Delete type=0 #10

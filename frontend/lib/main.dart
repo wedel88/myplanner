@@ -3,6 +3,8 @@ import 'package:material_ui/material_ui.dart';
 import 'screens/login_screen.dart';
 import 'screens/project_grid_screen.dart';
 import 'services/auth_service.dart';
+import '/screens/profile_screen.dart';
+import '/screens/user_dashboard_screen.dart';
 
 // WICHTIG: Kein flutter_localizations Import mehr!
 
@@ -20,7 +22,6 @@ class MyPlannerApp extends StatelessWidget {
     return MaterialApp(
       title: 'MyPlanner',
       debugShowCheckedModeBanner: false,
-      // Der Delegates-Parameter kommt jetzt ausschließlich aus material_ui
       localizationsDelegates: GlobalMaterialLocalizations.delegates,
       supportedLocales: const [Locale('de'), Locale('en')],
       theme: ThemeData(
@@ -28,6 +29,13 @@ class MyPlannerApp extends StatelessWidget {
         useMaterial3: true,
       ),
       home: const AuthCheckScreen(),
+      // 👇 HIER MÜSSEN DIE ROUTEN REGISTRIERT WERDEN
+      routes: {
+        '/login': (context) => const LoginScreen(), // Ersetze 'LoginScreen' mit dem tatsächlichen Namen deiner Login-Klasse
+        '/home': (context) => const ProjectGridScreen(),
+        '/dashboard': (context) => const UserDashboardScreen(),
+        '/profile': (context) => const ProfileScreen(),
+      },
     );
   }
 }

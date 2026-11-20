@@ -8,6 +8,9 @@ import '../widgets/kanban_container.dart';
 import '../widgets/project_chat_sheet.dart';
 import 'task_detail_screen.dart';
 import '../services/auth_service.dart';
+import 'profile_screen.dart';
+import 'project_grid_screen.dart';
+import 'user_dashboard_screen.dart';
 
 class ProjectDetailScreen extends StatefulWidget {
   final int projectId;
@@ -957,7 +960,90 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
           ),
         ),
         actions: [
-          // 1. Mitglied einladen (mit dezentem Hintergrund-Kreis)
+          // 🏠 1. Zurück zur Projekt-Übersicht (Home)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 8.0),
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.grey.shade100,
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.grey.shade300, width: 1),
+              ),
+              child: IconButton(
+                tooltip: 'Projekte (Home)',
+                icon: const Icon(
+                  Icons.grid_view_rounded,
+                  size: 20,
+                  color: Colors.black87,
+                ),
+                onPressed: () {
+                  Navigator.pushAndRemoveUntil(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const ProjectGridScreen(),
+                    ), // Hier den echten Klassennamen einsetzen!
+                    (route) => false,
+                  );
+                },
+              ),
+            ),
+          ),
+
+          // 📊 2. Zum Dashboard
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 8.0),
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.grey.shade100,
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.grey.shade300, width: 1),
+              ),
+              child: IconButton(
+                tooltip: 'Dashboard',
+                icon: const Icon(
+                  Icons.dashboard_outlined,
+                  size: 20,
+                  color: Colors.deepOrange,
+                ),
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const UserDashboardScreen(),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+
+          // 👤 3. Zum Profil
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 8.0),
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.grey.shade100,
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.grey.shade300, width: 1),
+              ),
+              child: IconButton(
+                tooltip: 'Mein Profil',
+                icon: const Icon(
+                  Icons.person_outline,
+                  size: 20,
+                  color: Colors.purple,
+                ),
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const ProfileScreen()),
+                  );
+                },
+              ),
+            ),
+          ),
+
+          // 4. Mitglied einladen (mit dezentem Hintergrund-Kreis)
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 8.0),
             child: Container(
@@ -978,7 +1064,7 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
             ),
           ),
 
-          // 2. Spalten ordnen / Reorder Modus
+          // 5. Spalten ordnen / Reorder Modus
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 8.0),
             child: Container(
@@ -1036,7 +1122,7 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
             ),
           ),
 
-          // 3. Projekt-Chat
+          // 6. Projekt-Chat
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 8.0),
             child: Container(
@@ -1068,7 +1154,7 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
             ),
           ),
 
-          // 4. Aktualisieren
+          // 7. Aktualisieren
           Padding(
             padding: const EdgeInsets.only(
               left: 4.0,

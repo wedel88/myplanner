@@ -43,6 +43,30 @@ class AuthService {
     return false;
   }
 
+  static Future<void> logout() async {
+    // Zuerst lokale Speicherwerte entfernen (garantiert schnellen Logout)
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('auth_token');
+    await prefs.remove('user_id');
+
+    // Optional im Hintergrund den Server informieren (ohne die UI zu blockieren)
+    try {
+      final token = await getToken();
+      if (token != null) {
+        http.post(
+          Uri.parse('$apiBaseUrl/logout'),
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'Authorization': 'Bearer $token',
+          },
+        );
+      }
+    } catch (e) {
+      print('Logout Fehler beim Server: $e');
+    }
+  }
+
   static Future<Map<String, String>> getHeaders() async {
     final token = await getToken();
     return {

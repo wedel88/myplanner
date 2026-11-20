@@ -212,10 +212,35 @@ class _ChatSheetState extends State<ChatSheet> {
             children: [
               Row(
                 children: [
-                  const CircleAvatar(
-                    radius: 12,
-                    backgroundColor: Colors.blueGrey,
-                    child: Icon(Icons.person, size: 16, color: Colors.white),
+                  // NEUE DYNAMISCHE VERSION:
+                  Builder(
+                    builder: (context) {
+                      final user = comment['user'];
+                      final avatarPath = user != null
+                          ? user['avatar'] as String?
+                          : null;
+
+                      // URL zusammenbauen (falls avatar vorhanden ist)
+                      final avatarUrl =
+                          (avatarPath != null && avatarPath.isNotEmpty)
+                          ? '$apiBaseUrl/avatars/${avatarPath.replaceFirst('avatars/', '')}'
+                          : null;
+
+                      return CircleAvatar(
+                        radius: 14, // Etwas angepasst für bessere Lesbarkeit im Chat
+                        backgroundColor: Colors.blueGrey.shade200,
+                        backgroundImage: avatarUrl != null
+                            ? NetworkImage(avatarUrl)
+                            : null,
+                        child: avatarUrl == null
+                            ? const Icon(
+                                Icons.person,
+                                size: 16,
+                                color: Colors.white,
+                              )
+                            : null,
+                      );
+                    },
                   ),
                   const SizedBox(width: 8),
                   Text(
