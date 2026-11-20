@@ -943,75 +943,155 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.projectName),
+        backgroundColor:
+            Colors.white, // Hebt die AppBar klar vom Hintergrund ab
+        elevation: 2, // Schafft einen leichten Schatten für Tiefe
+        iconTheme: const IconThemeData(
+          color: Colors.black87,
+        ), // Klare, dunkle Farbe für Standard-Icons
+        title: Text(
+          widget.projectName,
+          style: const TextStyle(
+            color: Colors.black87,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
         actions: [
-          IconButton(
-            tooltip: 'Mitglied einladen',
-            icon: const Icon(Icons.person_add),
-            onPressed: () => _showInviteDialog(),
-          ),
-          IconButton(
-            tooltip: _isReorderMode
-                ? 'Ordnungs-Modus beenden'
-                : 'Spalten ordnen',
-            icon: Icon(
-              _isReorderMode ? Icons.done : Icons.swap_horiz,
-              color: _isReorderMode ? Colors.green : null,
+          // 1. Mitglied einladen (mit dezentem Hintergrund-Kreis)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 8.0),
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.grey.shade100,
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.grey.shade300, width: 1),
+              ),
+              child: IconButton(
+                tooltip: 'Mitglied einladen',
+                icon: const Icon(
+                  Icons.person_add,
+                  size: 20,
+                  color: Colors.blue,
+                ),
+                onPressed: () => _showInviteDialog(),
+              ),
             ),
-            onPressed: () async {
-              if (_isReorderMode) {
-                setState(() {
-                  _isReorderMode = false;
-                });
-                final currentContainers = List.from(containers);
+          ),
 
-                for (int i = 0; i < currentContainers.length; i++) {
-                  final container =
-                      currentContainers[i] as Map<String, dynamic>;
-                  final containerId = int.tryParse(
-                    container['id']?.toString() ?? '',
-                  );
+          // 2. Spalten ordnen / Reorder Modus
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 8.0),
+            child: Container(
+              decoration: BoxDecoration(
+                color: _isReorderMode
+                    ? Colors.green.shade50
+                    : Colors.grey.shade100,
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: _isReorderMode ? Colors.green : Colors.grey.shade300,
+                  width: 1,
+                ),
+              ),
+              child: IconButton(
+                tooltip: _isReorderMode
+                    ? 'Ordnungs-Modus beenden'
+                    : 'Spalten ordnen',
+                icon: Icon(
+                  _isReorderMode ? Icons.done : Icons.swap_horiz,
+                  size: 20,
+                  color: _isReorderMode ? Colors.green : Colors.black87,
+                ),
+                onPressed: () async {
+                  if (_isReorderMode) {
+                    setState(() {
+                      _isReorderMode = false;
+                    });
+                    final currentContainers = List.from(containers);
 
-                  if (containerId != null) {
-                    try {
-                      await _updateContainerPosition(containerId, i);
-                    } catch (e) {
-                      debugPrint(
-                        'Fehler beim Speichern von Container $containerId: $e',
+                    for (int i = 0; i < currentContainers.length; i++) {
+                      final container =
+                          currentContainers[i] as Map<String, dynamic>;
+                      final containerId = int.tryParse(
+                        container['id']?.toString() ?? '',
                       );
+
+                      if (containerId != null) {
+                        try {
+                          await _updateContainerPosition(containerId, i);
+                        } catch (e) {
+                          debugPrint(
+                            'Fehler beim Speichern von Container $containerId: $e',
+                          );
+                        }
+                      }
                     }
+                    await fetchBoardData(showLoader: false);
+                  } else {
+                    setState(() {
+                      _isReorderMode = true;
+                    });
                   }
-                }
-                await fetchBoardData(showLoader: false);
-              } else {
-                setState(() {
-                  _isReorderMode = true;
-                });
-              }
-            },
+                },
+              ),
+            ),
           ),
-          IconButton(
-            tooltip: 'Projekt-Chat',
-            icon: const Icon(Icons.forum),
-            onPressed: () {
-              showModalBottomSheet(
-                context: context,
-                isScrollControlled: true,
-                shape: const RoundedRectangleBorder(
-                  borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-                ),
-                builder: (_) => ChatSheet(
-                  targetId: widget.projectId,
-                  targetType: 'Project',
-                  targetName: widget.projectName,
-                ),
-              );
-            },
+
+          // 3. Projekt-Chat
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 8.0),
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.grey.shade100,
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.grey.shade300, width: 1),
+              ),
+              child: IconButton(
+                tooltip: 'Projekt-Chat',
+                icon: const Icon(Icons.forum, size: 20, color: Colors.indigo),
+                onPressed: () {
+                  showModalBottomSheet(
+                    context: context,
+                    isScrollControlled: true,
+                    shape: const RoundedRectangleBorder(
+                      borderRadius: BorderRadius.vertical(
+                        top: Radius.circular(20),
+                      ),
+                    ),
+                    builder: (_) => ChatSheet(
+                      targetId: widget.projectId,
+                      targetType: 'Project',
+                      targetName: widget.projectName,
+                    ),
+                  );
+                },
+              ),
+            ),
           ),
-          IconButton(
-            tooltip: 'Aktualisieren',
-            icon: const Icon(Icons.refresh),
-            onPressed: fetchBoardData,
+
+          // 4. Aktualisieren
+          Padding(
+            padding: const EdgeInsets.only(
+              left: 4.0,
+              right: 12.0,
+              top: 8.0,
+              bottom: 8.0,
+            ),
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.grey.shade100,
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.grey.shade300, width: 1),
+              ),
+              child: IconButton(
+                tooltip: 'Aktualisieren',
+                icon: const Icon(
+                  Icons.refresh,
+                  size: 20,
+                  color: Colors.black87,
+                ),
+                onPressed: fetchBoardData,
+              ),
+            ),
           ),
         ],
       ),

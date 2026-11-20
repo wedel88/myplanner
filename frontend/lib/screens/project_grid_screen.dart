@@ -143,25 +143,59 @@ class _ProjectGridScreenState extends State<ProjectGridScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Meine Projekte'),
+        backgroundColor:
+            Colors.white, // Hebt die AppBar klar vom Hintergrund ab
+        elevation: 2, // Schafft einen leichten Schatten für Tiefe
+        iconTheme: const IconThemeData(color: Colors.black87),
+        title: const Text(
+          'Meine Projekte',
+          style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold),
+        ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.add),
-            onPressed: () => _showProjectDialog(),
-            tooltip: 'Projekt hinzufügen',
+          // 1. Projekt hinzufügen-Button (im dezenten Kreis)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 8.0),
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.grey.shade100,
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.grey.shade300, width: 1),
+              ),
+              child: IconButton(
+                icon: const Icon(Icons.add, size: 20, color: Colors.blue),
+                onPressed: () => _showProjectDialog(),
+                tooltip: 'Projekt hinzufügen',
+              ),
+            ),
           ),
-          // NEU: Der Logout-Button
-          IconButton(
-            icon: const Icon(Icons.logout, color: Colors.red),
-            onPressed: () async {
-              await AuthService.deleteToken();
-              if (!mounted) return;
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(builder: (_) => const LoginScreen()),
-              );
-            },
-            tooltip: 'Ausloggen',
+
+          // 2. Logout-Button (mit rotem Akzent-Kreis für die Warn-Funktion)
+          Padding(
+            padding: const EdgeInsets.only(
+              left: 4.0,
+              right: 12.0,
+              top: 8.0,
+              bottom: 8.0,
+            ),
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.red.shade50,
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.red.shade200, width: 1),
+              ),
+              child: IconButton(
+                icon: const Icon(Icons.logout, size: 20, color: Colors.red),
+                onPressed: () async {
+                  await AuthService.deleteToken();
+                  if (!mounted) return;
+                  Navigator.pushReplacement(
+                    context,
+                    MaterialPageRoute(builder: (_) => const LoginScreen()),
+                  );
+                },
+                tooltip: 'Ausloggen',
+              ),
+            ),
           ),
         ],
       ),
