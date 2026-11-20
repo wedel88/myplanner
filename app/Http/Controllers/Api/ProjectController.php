@@ -129,8 +129,18 @@ class ProjectController extends Controller
     }
     public function users(Project $project)
     {
-        // Gibt alle User zurück, die zu diesem Projekt gehören
-        return response()->json($project->users);
+        // Hole alle eingeladenen Mitglieder
+        $users = $project->users;
+
+        // Füge den Projekt-Ersteller (Owner) hinzu, falls vorhanden und noch nicht in der Liste
+        if ($project->user_id) {
+            $owner = \App\Models\User::find($project->user_id);
+            if ($owner && !$users->contains('id', $owner->id)) {
+                $users->push($owner);
+            }
+        }
+
+        return response()->json($users);
     }
     public function projectUsers(Project $project)
     {

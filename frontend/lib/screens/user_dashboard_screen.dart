@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:material_ui/material_ui.dart';
 import 'package:http/http.dart' as http;
 
+import '../main.dart';
 import '../services/auth_service.dart';
 import 'project_detail_screen.dart';
 
@@ -17,25 +18,41 @@ class _UserDashboardScreenState extends State<UserDashboardScreen> {
   bool _isLoading = true;
   List<dynamic> _tasks = [];
   Map<String, dynamic> _stats = {'total': 0, 'completed': 0, 'pending': 0};
+  int? _currentUserId; // 👈 ID des eigenen Users für den Filter
 
   // Filter-Zustände
   String _selectedFilter = 'all'; // 'all', 'pending', 'overdue'
   bool _hideCompleted = true; // Erledigte ausblenden
-
-  final String baseUrl = 'http://127.0.0.1:8000/api';
+  bool _onlyMyTasks = false; // 👈 Neuer Schalter: Nur meine Aufgaben
 
   @override
   void initState() {
     super.initState();
-    _fetchDashboardData();
+    _loadUserAndDashboardData();
   }
 
-  Future<void> _fetchDashboardData() async {
+  Future<void> _loadUserAndDashboardData() async {
     final headers = await AuthService.getHeaders();
 
     try {
+      // 1. Eigenen User abrufen, um die ID für den "Nur meine Aufgaben"-Filter zu haben
+      final userResponse = await http.get(
+        Uri.parse('$apiBaseUrl/me'),
+        headers: headers,
+      );
+
+      if (userResponse.statusCode == 200) {
+        final userData = json.decode(userResponse.body);
+        setState(() {
+          // Je nachdem, wie dein /me Endpoint das Objekt zurückgibt (z.B. direkt als User oder unter 'user')
+          _currentUserId = userData['id'] ?? userData['user']?['id'];
+        });
+        debugPrint('Eingeloggter User ID ist: $_currentUserId');
+      }
+
+      // 2. Dashboard-Daten laden
       final response = await http.get(
-        Uri.parse('$baseUrl/dashboard/tasks'),
+        Uri.parse('$apiBaseUrl/dashboard/tasks'),
         headers: headers,
       );
 
@@ -57,7 +74,6 @@ class _UserDashboardScreenState extends State<UserDashboardScreen> {
     }
   }
 
-  // Hilfsfunktion für einheitliche Status-Farben
   Color _getStatusColor(String? status) {
     switch (status) {
       case 'completed':
@@ -84,16 +100,27 @@ class _UserDashboardScreenState extends State<UserDashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Aufgaben filtern basierend auf dem ausgewählten Filter und dem "Erledigte ausblenden"-Schalter
+    // Aufgaben filtern basierend auf allen aktivierten Kriterien
     final filteredTasks = _tasks.where((task) {
       final status = task['status'] ?? 'open';
+      final assignedUserId = task['assigned_user_id'];
 
-      // 1. Erledigte ausblenden
+      // 1. "Nur meine Aufgaben"-Filter (Strenge Prüfung!)
+      if (_onlyMyTasks) {
+        // Wenn dem Task niemand zugewiesen ist (null) ODER die ID nicht zu meinem User passt -> Verstecken!
+        if (assignedUserId == null ||
+            _currentUserId == null ||
+            assignedUserId.toString() != _currentUserId.toString()) {
+          return false;
+        }
+      }
+
+      // 2. Erledigte ausblenden
       if (_hideCompleted && status == 'completed') {
         return false;
       }
 
-      // 2. Filter anwenden
+      // 3. Status-Filter
       if (_selectedFilter == 'pending') {
         return status != 'completed';
       } else if (_selectedFilter == 'overdue') {
@@ -108,16 +135,14 @@ class _UserDashboardScreenState extends State<UserDashboardScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Mein Dashboard'),
-        backgroundColor: Colors.white,
         elevation: 2,
-        iconTheme: const IconThemeData(color: Colors.black87),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
             tooltip: 'Aktualisieren',
             onPressed: () {
               setState(() => _isLoading = true);
-              _fetchDashboardData();
+              _loadUserAndDashboardData();
             },
           ),
         ],
@@ -151,6 +176,28 @@ class _UserDashboardScreenState extends State<UserDashboardScreen> {
                       ),
                     ],
                   ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      _buildStatCard(
+                        'Heute erledigt',
+                        '${_stats['completed_today'] ?? 0}',
+                        Colors.teal,
+                      ),
+                      const SizedBox(width: 12),
+                      _buildStatCard(
+                        'Letzte 7 Tage',
+                        '${_stats['completed_week'] ?? 0}',
+                        Colors.indigo,
+                      ),
+                      const SizedBox(width: 12),
+                      _buildStatCard(
+                        'Diesen Monat',
+                        '${_stats['completed_month'] ?? 0}',
+                        Colors.purple,
+                      ),
+                    ],
+                  ),
                   const SizedBox(height: 20),
 
                   // Filter-Leiste & Schalter
@@ -159,12 +206,22 @@ class _UserDashboardScreenState extends State<UserDashboardScreen> {
                     runSpacing: 8.0,
                     crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
+                      // 👉 NEU: Zuweisungs-Filter (Alle vs. Nur meine)
                       ChoiceChip(
-                        label: const Text('Alle'),
-                        selected: _selectedFilter == 'all',
+                        label: const Text('Alle Aufgaben'),
+                        selected: !_onlyMyTasks,
                         onSelected: (selected) =>
-                            setState(() => _selectedFilter = 'all'),
+                            setState(() => _onlyMyTasks = false),
                       ),
+                      ChoiceChip(
+                        label: const Text('👤 Nur meine Aufgaben'),
+                        selected: _onlyMyTasks,
+                        onSelected: (selected) =>
+                            setState(() => _onlyMyTasks = true),
+                      ),
+                      const SizedBox(width: 8),
+
+                      // Status-Filter
                       ChoiceChip(
                         label: const Text('Offen & Aktiv'),
                         selected: _selectedFilter == 'pending',
@@ -177,7 +234,9 @@ class _UserDashboardScreenState extends State<UserDashboardScreen> {
                         onSelected: (selected) =>
                             setState(() => _selectedFilter = 'overdue'),
                       ),
-                      const VerticalDivider(),
+                      const SizedBox(width: 8),
+
+                      // Erledigte ausblenden
                       FilterChip(
                         label: const Text('Erledigte ausblenden'),
                         selected: _hideCompleted,
@@ -188,9 +247,14 @@ class _UserDashboardScreenState extends State<UserDashboardScreen> {
                   ),
                   const SizedBox(height: 16),
 
-                  const Text(
-                    'Deine zugewiesenen Aufgaben',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  Text(
+                    _onlyMyTasks
+                        ? 'Deine persönlichen Aufgaben'
+                        : 'Alle Projekt-Aufgaben im Team',
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                   const SizedBox(height: 8),
 
@@ -215,7 +279,6 @@ class _UserDashboardScreenState extends State<UserDashboardScreen> {
                               final status = task['status'] ?? 'open';
                               final dueAt = task['due_at'];
 
-                              // Prüfen ob überfällig
                               bool isOverdue = false;
                               if (dueAt != null && status != 'completed') {
                                 final dueDate = DateTime.parse(dueAt);
@@ -231,7 +294,6 @@ class _UserDashboardScreenState extends State<UserDashboardScreen> {
                                 child: ListTile(
                                   onTap: () {
                                     if (projectId != null) {
-                                      // Klick führt direkt ins jeweilige Projekt-Board!
                                       Navigator.push(
                                         context,
                                         MaterialPageRoute(

@@ -3,6 +3,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\Task;
+use Carbon\Carbon;
 
 class DashboardController extends Controller
 {
@@ -10,22 +11,39 @@ class DashboardController extends Controller
     {
         $user = $request->user();
 
-        // Hole alle Aufgaben aus Projekten, bei denen der User Mitglied ist
-        // (inklusive zugehörigem Projekt, Spalte und Subtasks)
+        // Alle Aufgaben aus Projekten, bei denen der User Mitglied ist
         $tasks = Task::whereHas('container.project', function ($query) use ($user) {
             $query->whereHas('users', function ($q) use ($user) {
                 $q->where('users.id', $user->id);
             });
         })
-        ->with(['container.project', 'subtasks'])
-        ->orderBy('due_at', 'asc') // Sortiert nach Ablaufdatum
-        ->get();
+            ->with(['container.project', 'subtasks', 'assignedUser'])
+            ->orderBy('due_at', 'asc')
+            ->get();
 
-        // Optional: Kleine Statistiken direkt mitliefern
+        // Erweiterte Statistiken berechnen
+        $now = Carbon::now();
+
         $stats = [
             'total' => $tasks->count(),
-            'completed' => $tasks->where('status', 'completed')->count(), // Passe das Feld an deinen Status an
+            'completed' => $tasks->where('status', 'completed')->count(),
             'pending' => $tasks->where('status', '!=', 'completed')->count(),
+            // Zeitbasierte Statistiken für erledigte Aufgaben
+            'completed_today' => $tasks->filter(function ($task) use ($now) {
+                return $task->status === 'completed' &&
+                    $task->updated_at &&
+                    Carbon::parse($task->updated_at)->isToday();
+            })->count(),
+            'completed_week' => $tasks->filter(function ($task) use ($now) {
+                return $task->status === 'completed' &&
+                    $task->updated_at &&
+                    Carbon::parse($task->updated_at)->gte($now->copy()->subDays(7));
+            })->count(),
+            'completed_month' => $tasks->filter(function ($task) use ($now) {
+                return $task->status === 'completed' &&
+                    $task->updated_at &&
+                    Carbon::parse($task->updated_at)->isCurrentMonth();
+            })->count(),
         ];
 
         return response()->json([
