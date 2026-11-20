@@ -64,13 +64,15 @@ class TaskController extends Controller
             'planned_start_at' => 'nullable|date', // <-- NEU
             'planned_end_at' => 'nullable|date',   // <-- NEU
             'due_at' => 'nullable|date',
+            'assigned_user_id' => 'nullable|exists:users,id',
         ]);
 
         $task->update($validated);
 
         return response()->json([
             'message' => 'Aufgabe aktualisiert',
-            'data' => $task->load('subtasks')
+            'data' => $task->load('subtasks'),
+            $task->load('assignedUser')
         ], 200);
     }
 

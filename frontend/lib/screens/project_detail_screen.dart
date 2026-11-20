@@ -1236,6 +1236,7 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
             MaterialPageRoute(
               builder: (_) => TaskDetailScreen(
                 task: taskData,
+                projectId: widget.projectId, // 👈 Direkt übergeben
                 onTaskUpdated: () => fetchBoardData(showLoader: false),
               ),
             ),

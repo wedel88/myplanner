@@ -127,4 +127,13 @@ class ProjectController extends Controller
 
         return response()->json(['message' => 'Mitglied erfolgreich hinzugefügt'], 200);
     }
+    public function users(Project $project)
+    {
+        // Gibt alle User zurück, die zu diesem Projekt gehören
+        return response()->json($project->users);
+    }
+    public function projectUsers(Project $project)
+    {
+        return $project->users;
+    }
 }

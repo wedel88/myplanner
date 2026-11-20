@@ -25,7 +25,7 @@ class Project extends Model
     // Alle Mitglieder des Projekts (Many-to-Many)
     public function users()
     {
-        return $this->belongsToMany(User::class);
+        return $this->belongsToMany(User::class, 'project_user');
     }
 
     // Die Container (Spalten) des Projekts

@@ -7,7 +7,8 @@ use App\Http\Controllers\Api\ContainerController;
 use App\Http\Controllers\Api\TaskController;
 use App\Http\Controllers\Api\SubtaskController;
 use App\Http\Controllers\Api\CommentController;
-use App\Http\Controllers\Api\AuthController; // <-- Wichtig importieren
+use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\DashboardController;
 
 // ==========================================
 // ÖFFENTLICHE ROUTEN (Kein Login nötig)
@@ -30,9 +31,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/projects/{project}/containers', [ProjectController::class, 'getContainersWithTasks']);
     Route::post('/projects/{project}/containers', [ContainerController::class, 'store']);
     Route::post('/projects/reorder', [ProjectController::class, 'reorder']);
-    // Route zum Hinzufügen eines Mitglieds zu einem Projekt
     Route::post('/projects/{project}/members', [ProjectController::class, 'addMember']);
-
+    Route::get('/projects/{project}/users', [ProjectController::class, 'users']);
     // Container (Spalten)
     Route::apiResource('containers', ContainerController::class);
     Route::put('/containers/{container}/position', [ContainerController::class, 'updatePosition']);
@@ -51,4 +51,6 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/comments', [CommentController::class, 'index']);
     Route::post('/comments', [CommentController::class, 'store']);
     Route::delete('/comments/{comment}', [CommentController::class, 'destroy']);
+
+    Route::get('/dashboard/tasks', [DashboardController::class, 'index']);
 });

@@ -62,7 +62,9 @@ class _ChatSheetState extends State<ChatSheet> {
 
     try {
       final headers = await AuthService.getHeaders();
+      if (!mounted) return;
       final response = await http.get(url, headers: headers);
+      if (!mounted) return;
       if (response.statusCode == 200) {
         setState(() {
           _comments = jsonDecode(response.body);

@@ -8,6 +8,7 @@ import 'project_detail_screen.dart';
 import '../widgets/project_chat_sheet.dart';
 import '../services/auth_service.dart'; // <-- WICHTIG: Importiert!
 import 'login_screen.dart'; // <-- WICHTIG für den Logout-Button
+import 'user_dashboard_screen.dart';
 
 class ProjectGridScreen extends StatefulWidget {
   const ProjectGridScreen({super.key});
@@ -152,14 +153,14 @@ class _ProjectGridScreenState extends State<ProjectGridScreen> {
           style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold),
         ),
         actions: [
-          // 1. Projekt hinzufügen-Button (im dezenten Kreis)
+          // ➕ Plus-Button für neue Projekte (jetzt schön hervorgehoben in Blau)
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 8.0),
             child: Container(
               decoration: BoxDecoration(
-                color: Colors.grey.shade100,
+                color: Colors.blue.shade50,
                 shape: BoxShape.circle,
-                border: Border.all(color: Colors.grey.shade300, width: 1),
+                border: Border.all(color: Colors.blue.shade200, width: 1),
               ),
               child: IconButton(
                 icon: const Icon(Icons.add, size: 20, color: Colors.blue),
@@ -168,8 +169,34 @@ class _ProjectGridScreenState extends State<ProjectGridScreen> {
               ),
             ),
           ),
-
-          // 2. Logout-Button (mit rotem Akzent-Kreis für die Warn-Funktion)
+          // 📊 Button zum projektübergreifenden Dashboard
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 8.0),
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.indigo.shade50,
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.indigo.shade200, width: 1),
+              ),
+              child: IconButton(
+                icon: const Icon(
+                  Icons.dashboard,
+                  size: 20,
+                  color: Colors.indigo,
+                ),
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const UserDashboardScreen(),
+                    ),
+                  );
+                },
+                tooltip: 'Zum Dashboard',
+              ),
+            ),
+          ),
+          // Logout-Button (mit rotem Akzent-Kreis für die Warn-Funktion)
           Padding(
             padding: const EdgeInsets.only(
               left: 4.0,
