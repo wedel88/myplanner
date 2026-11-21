@@ -104,6 +104,24 @@ class _KanbanTaskCardState extends State<KanbanTaskCard> {
                         overflow: TextOverflow.ellipsis, // Verhindert, dass zu lange Titel das Layout sprengen
                       ),
                     ),
+                    if (task['attachments'] != null &&
+                        (task['attachments'] as List).isNotEmpty) ...[
+                      const SizedBox(width: 6),
+                      const Icon(
+                        Icons.attach_file,
+                        size: 14,
+                        color: Colors.grey,
+                      ),
+                      const SizedBox(width: 2),
+                      Text(
+                        '${(task['attachments'] as List).length}',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: Colors.grey,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
                   ],
                 ),
                 subtitle: taskDesc.isNotEmpty ? Text(taskDesc) : null,

@@ -22,7 +22,8 @@ class ContainerController extends Controller
             'tasks' => function ($q) {
                 $q->orderBy('position');
             },
-            'tasks.subtasks'
+            'tasks.subtasks',
+            'tasks.attachments' // 👈 HIER MUSS DAS HIN!
         ])->orderBy('position')->get(), 200);
     }
 

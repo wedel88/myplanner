@@ -12,6 +12,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ProfileController;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\Response;
+use App\Http\Controllers\Api\TaskAttachmentController; //
 
 // ==========================================
 // ÖFFENTLICHE ROUTEN (Kein Login nötig)
@@ -76,4 +77,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/me', [ProfileController::class, 'show']);
     Route::post('/profile/avatar', [ProfileController::class, 'updateAvatar']);
     Route::put('/profile', [ProfileController::class, 'update']);
+
+    //Attachments
+    Route::post('/tasks/{task}/attachments', [TaskAttachmentController::class, 'store']);
+    Route::delete('/task-attachments/{attachment}', [TaskAttachmentController::class, 'destroy']);
+
 });

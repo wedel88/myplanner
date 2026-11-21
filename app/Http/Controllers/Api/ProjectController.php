@@ -44,7 +44,8 @@ class ProjectController extends Controller
                 'tasks' => function ($query) {
                     $query->orderBy('position');
                 },
-                'tasks.subtasks'
+                'tasks.subtasks',
+                'tasks.attachments'
             ])
             ->get();
 

@@ -50,7 +50,7 @@ class TaskController extends Controller
     // Eine einzelne Aufgabe anzeigen (inklusive Subtasks und Kommentaren)
     public function show(Task $task)
     {
-        return response()->json($task->load('subtasks', 'comments'), 200);
+        return response()->json($task->load('subtasks', 'comments', 'attachments'), 200);
     }
 
     // Eine Aufgabe aktualisieren (z.B. Status ändern oder Verschieben in andere Spalte)
