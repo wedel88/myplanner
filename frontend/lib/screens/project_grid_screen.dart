@@ -6,8 +6,8 @@ import 'package:http/http.dart' as http;
 
 import 'project_detail_screen.dart';
 import '../widgets/project_chat_sheet.dart';
-import '../services/auth_service.dart'; // <-- WICHTIG: Importiert!
-import 'login_screen.dart'; // <-- WICHTIG für den Logout-Button
+import '../services/auth_service.dart';
+import 'login_screen.dart';
 import 'user_dashboard_screen.dart';
 import 'profile_screen.dart';
 
@@ -32,13 +32,15 @@ class _ProjectGridScreenState extends State<ProjectGridScreen> {
 
   // Projekte von der API laden
   Future<void> _fetchProjects() async {
-    final headers = await AuthService.getHeaders(); // Token holen
+    final headers = await AuthService.getHeaders();
+    if (!mounted) return; // 🛡️ Schutz nach await
 
     try {
       final response = await http.get(
         Uri.parse('$baseUrl/projects'),
         headers: headers,
       );
+      if (!mounted) return; // 🛡️ Schutz nach await
 
       if (response.statusCode == 200) {
         setState(() {
@@ -46,7 +48,6 @@ class _ProjectGridScreenState extends State<ProjectGridScreen> {
           _isLoading = false;
         });
       } else {
-        // Wenn der Token ungültig ist (401), zurück zum Login
         if (response.statusCode == 401) {
           if (!mounted) return;
           Navigator.pushReplacement(
@@ -58,20 +59,23 @@ class _ProjectGridScreenState extends State<ProjectGridScreen> {
         }
       }
     } catch (e) {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
   // Projekt löschen
   Future<void> _deleteProject(int id) async {
     final headers = await AuthService.getHeaders();
+    if (!mounted) return; // 🛡️ Schutz nach await
+
     final response = await http.delete(
       Uri.parse('$baseUrl/projects/$id'),
       headers: headers,
     );
+    if (!mounted) return; // 🛡️ Schutz nach await
 
     if (response.statusCode == 200 || response.statusCode == 204) {
-      _fetchProjects();
+      await _fetchProjects();
     }
   }
 
@@ -117,22 +121,24 @@ class _ProjectGridScreenState extends State<ProjectGridScreen> {
 
               Navigator.pop(context);
 
-              final headers = await AuthService.getHeaders(); // Token holen
+              final headers = await AuthService.getHeaders();
+              if (!mounted) return; // 🛡️ Schutz nach await
 
               if (isEditing) {
                 await http.put(
                   Uri.parse('$baseUrl/projects/${project['id']}'),
-                  headers: headers, // <-- Hier richtig eingefügt
+                  headers: headers,
                   body: json.encode({'name': name, 'description': desc}),
                 );
               } else {
                 await http.post(
                   Uri.parse('$baseUrl/projects'),
-                  headers: headers, // <-- Hier richtig eingefügt
+                  headers: headers,
                   body: json.encode({'name': name, 'description': desc}),
                 );
               }
-              _fetchProjects();
+              if (!mounted) return; // 🛡️ Schutz nach await
+              await _fetchProjects();
             },
             child: Text(isEditing ? 'Speichern' : 'Erstellen'),
           ),
@@ -147,7 +153,6 @@ class _ProjectGridScreenState extends State<ProjectGridScreen> {
       appBar: AppBar(
         title: const Text('Meine Projekte'),
         actions: [
-          // Navigation zum Dashboard
           IconButton(
             icon: const Icon(Icons.dashboard_outlined),
             tooltip: 'Dashboard',
@@ -158,7 +163,6 @@ class _ProjectGridScreenState extends State<ProjectGridScreen> {
               );
             },
           ),
-          // Navigation zum Profil
           IconButton(
             icon: const Icon(Icons.person_outline),
             tooltip: 'Mein Profil',
@@ -171,7 +175,6 @@ class _ProjectGridScreenState extends State<ProjectGridScreen> {
           ),
         ],
       ),
-      // 👉 Der Plus-Button für neue Projekte
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _showProjectDialog,
         icon: const Icon(Icons.add),
@@ -211,7 +214,9 @@ class _ProjectGridScreenState extends State<ProjectGridScreen> {
                             ),
                           ),
                         ).then((_) {
-                          _fetchProjects();
+                          if (mounted) {
+                            _fetchProjects();
+                          }
                         });
                       },
                       borderRadius: BorderRadius.circular(16),

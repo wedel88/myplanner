@@ -11,6 +11,7 @@ import '../services/auth_service.dart';
 import 'profile_screen.dart';
 import 'project_grid_screen.dart';
 import 'user_dashboard_screen.dart';
+import 'project_info_screen.dart';
 
 class ProjectDetailScreen extends StatefulWidget {
   final int projectId;
@@ -39,7 +40,7 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
   }
 
   Future<void> fetchBoardData({bool showLoader = false}) async {
-    if (showLoader) {
+    if (showLoader && mounted) {
       setState(() {
         isLoading = true;
         errorMessage = '';
@@ -50,11 +51,11 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
       '$apiBaseUrl/projects/${widget.projectId}/containers',
     );
     final headers = await AuthService.getHeaders();
+    if (!mounted) return; // 🛡️ Schutz nach await
 
     try {
       final response = await http.get(url, headers: headers);
-
-      if (!mounted) return;
+      if (!mounted) return; // 🛡️ Schutz nach await
 
       if (response.statusCode == 200) {
         final decodedData = jsonDecode(response.body);
@@ -118,6 +119,7 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
   Future<void> _createContainer(String name) async {
     final url = Uri.parse('$apiBaseUrl/containers');
     final headers = await AuthService.getHeaders();
+    if (!mounted) return; // 🛡️ Schutz nach await
 
     try {
       final response = await http.post(
@@ -125,8 +127,7 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
         headers: headers,
         body: jsonEncode({'project_id': widget.projectId, 'name': name}),
       );
-
-      if (!mounted) return;
+      if (!mounted) return; // 🛡️ Schutz nach await
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         await fetchBoardData();
@@ -177,7 +178,8 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
 
   Future<void> _updateContainer(int containerId, String name) async {
     final url = Uri.parse('$apiBaseUrl/containers/$containerId');
-    final headers = await AuthService.getHeaders(); // <-- NEU
+    final headers = await AuthService.getHeaders();
+    if (!mounted) return; // 🛡️ Schutz nach await
 
     try {
       final response = await http.put(
@@ -185,8 +187,7 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
         headers: headers,
         body: jsonEncode({'name': name}),
       );
-
-      if (!mounted) return;
+      if (!mounted) return; // 🛡️ Schutz nach await
 
       if (response.statusCode == 200 || response.statusCode == 204) {
         await fetchBoardData();
@@ -234,10 +235,11 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
   Future<void> _deleteContainer(int containerId) async {
     final url = Uri.parse('$apiBaseUrl/containers/$containerId');
     final headers = await AuthService.getHeaders();
+    if (!mounted) return; // 🛡️ Schutz nach await
+
     try {
       final response = await http.delete(url, headers: headers);
-
-      if (!mounted) return;
+      if (!mounted) return; // 🛡️ Schutz nach await
 
       if (response.statusCode == 200 || response.statusCode == 204) {
         await fetchBoardData();
@@ -285,6 +287,7 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
   Future<void> _deleteTask(int taskId) async {
     final url = Uri.parse('$apiBaseUrl/tasks/$taskId');
     final headers = await AuthService.getHeaders();
+    if (!mounted) return; // 🛡️ Schutz nach await
 
     try {
       final response = await http.delete(url, headers: headers);
@@ -357,7 +360,8 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
     String description,
   ) async {
     final url = Uri.parse('$apiBaseUrl/tasks');
-    final headers = await AuthService.getHeaders(); // <-- NEU
+    final headers = await AuthService.getHeaders();
+    if (!mounted) return; // 🛡️ Schutz nach await
 
     try {
       final response = await http.post(
@@ -369,8 +373,7 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
           'description': description,
         }),
       );
-
-      if (!mounted) return;
+      if (!mounted) return; // 🛡️ Schutz nach await
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         await fetchBoardData();
@@ -390,7 +393,8 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
     int newPosition,
   ) async {
     final url = Uri.parse('$apiBaseUrl/containers/$containerId/reorder');
-    final headers = await AuthService.getHeaders(); // <-- NEU
+    final headers = await AuthService.getHeaders();
+    if (!mounted) return; // 🛡️ Schutz nach await
 
     try {
       final response = await http.patch(
@@ -541,7 +545,8 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
     String? dueAt,
   ) async {
     final url = Uri.parse('$apiBaseUrl/tasks/$taskId');
-    final headers = await AuthService.getHeaders(); // <-- NEU
+    final headers = await AuthService.getHeaders();
+    if (!mounted) return; // 🛡️ Schutz nach await
 
     try {
       final response = await http.put(
@@ -554,8 +559,7 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
           'due_at': dueAt,
         }),
       );
-
-      if (!mounted) return;
+      if (!mounted) return; // 🛡️ Schutz nach await
 
       if (response.statusCode == 200 || response.statusCode == 204) {
         await fetchBoardData();
@@ -608,7 +612,8 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
 
   Future<void> _createSubtask(int taskId, String title) async {
     final url = Uri.parse('$apiBaseUrl/subtasks');
-    final headers = await AuthService.getHeaders(); // <-- NEU
+    final headers = await AuthService.getHeaders();
+    if (!mounted) return; // 🛡️ Schutz nach await
 
     try {
       final response = await http.post(
@@ -620,8 +625,7 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
           'is_completed': false,
         }),
       );
-
-      if (!mounted) return;
+      if (!mounted) return; // 🛡️ Schutz nach await
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         await fetchBoardData();
@@ -638,7 +642,8 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
 
   Future<void> _toggleSubtask(int subtaskId, bool currentStatus) async {
     final url = Uri.parse('$apiBaseUrl/subtasks/$subtaskId');
-    final headers = await AuthService.getHeaders(); // <-- NEU
+    final headers = await AuthService.getHeaders();
+    if (!mounted) return; // 🛡️ Schutz nach await
 
     try {
       final response = await http.put(
@@ -646,8 +651,7 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
         headers: headers,
         body: jsonEncode({'is_completed': !currentStatus}),
       );
-
-      if (!mounted) return;
+      if (!mounted) return; // 🛡️ Schutz nach await
 
       if (response.statusCode == 200 || response.statusCode == 204) {
         await fetchBoardData();
@@ -662,7 +666,8 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
 
   Future<void> _updateSubtaskTitle(int subtaskId, String newTitle) async {
     final url = Uri.parse('$apiBaseUrl/subtasks/$subtaskId');
-    final headers = await AuthService.getHeaders(); // <-- NEU
+    final headers = await AuthService.getHeaders();
+    if (!mounted) return; // 🛡️ Schutz nach await
 
     try {
       final response = await http.put(
@@ -670,8 +675,7 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
         headers: headers,
         body: jsonEncode({'title': newTitle}),
       );
-
-      if (!mounted) return;
+      if (!mounted) return; // 🛡️ Schutz nach await
 
       if (response.statusCode == 200 || response.statusCode == 204) {
         await fetchBoardData();
@@ -691,7 +695,8 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
     int newPosition,
   ) async {
     final url = Uri.parse('$apiBaseUrl/tasks/$taskId/reorder');
-    final headers = await AuthService.getHeaders(); // <-- NEU
+    final headers = await AuthService.getHeaders();
+    if (!mounted) return; // 🛡️ Schutz nach await
 
     try {
       final response = await http.patch(
@@ -702,8 +707,7 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
           'position': newPosition,
         }),
       );
-
-      if (!mounted) return;
+      if (!mounted) return; // 🛡️ Schutz nach await
 
       if (response.statusCode != 200 && response.statusCode != 204) {
         debugPrint(
@@ -718,11 +722,12 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
 
   Future<void> _deleteSubtask(int subtaskId) async {
     final url = Uri.parse('$apiBaseUrl/subtasks/$subtaskId');
-    final headers = await AuthService.getHeaders(); // <-- NEU
+    final headers = await AuthService.getHeaders();
+    if (!mounted) return; // 🛡️ Schutz nach await
 
     try {
       final response = await http.get(url, headers: headers);
-      if (!mounted) return;
+      if (!mounted) return; // 🛡️ Schutz nach await
 
       if (response.statusCode == 200 || response.statusCode == 204) {
         await fetchBoardData();
@@ -873,6 +878,7 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
   }
 
   void _showMessage(String message) {
+    if (!mounted) return;
     ScaffoldMessenger.of(context)
         .showSnackBar(SnackBar(content: Text(message)));
   }
@@ -917,6 +923,7 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
   Future<void> _inviteMember(String email) async {
     final url = Uri.parse('$apiBaseUrl/projects/${widget.projectId}/members');
     final headers = await AuthService.getHeaders();
+    if (!mounted) return; // 🛡️ Schutz nach await
 
     try {
       final response = await http.post(
@@ -924,13 +931,11 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
         headers: headers,
         body: jsonEncode({'email': email}),
       );
-
-      if (!mounted) return;
+      if (!mounted) return; // 🛡️ Schutz nach await
 
       if (response.statusCode == 200) {
         _showMessage('Mitglied erfolgreich hinzugefügt!');
       } else {
-        // Fehler vom Backend auslesen (z.B. "User nicht gefunden")
         final errorData = jsonDecode(response.body);
         final errorMsg =
             errorData['message'] ?? errorData['error'] ?? 'Unbekannter Fehler';
@@ -946,12 +951,83 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        backgroundColor:
-            Colors.white, // Hebt die AppBar klar vom Hintergrund ab
-        elevation: 2, // Schafft einen leichten Schatten für Tiefe
-        iconTheme: const IconThemeData(
-          color: Colors.black87,
-        ), // Klare, dunkle Farbe für Standard-Icons
+        backgroundColor: Colors.white,
+        elevation: 2,
+        iconTheme: const IconThemeData(color: Colors.black87),
+
+        // 🧭 1. NAVIGATION (Links: Dropdown für Seitenwechsel inkl. ProjectInfoScreen)
+        leading: PopupMenuButton<String>(
+          tooltip: 'Navigation',
+          icon: const Icon(Icons.menu, color: Colors.black87),
+          onSelected: (value) {
+            if (value == 'home') {
+              Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(builder: (_) => const ProjectGridScreen()),
+                (route) => false,
+              );
+            } else if (value == 'dashboard') {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const UserDashboardScreen()),
+              );
+            } else if (value == 'profile') {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const ProfileScreen()),
+              );
+            } else if (value == 'info') {
+              final projectData = {
+                'id': widget.projectId,
+                'name': widget.projectName,
+              };
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => ProjectInfoScreen(
+                    project: projectData,
+                    apiBaseUrl: apiBaseUrl,
+                  ),
+                ),
+              );
+            }
+          },
+          itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+            const PopupMenuItem<String>(
+              value: 'info',
+              child: ListTile(
+                leading: Icon(Icons.info_outline, color: Colors.blue),
+                title: Text('Projekt-Info & Dateien'),
+              ),
+            ),
+            const PopupMenuDivider(),
+            const PopupMenuItem<String>(
+              value: 'home',
+              child: ListTile(
+                leading: Icon(Icons.grid_view_rounded),
+                title: Text('Projekte (Home)'),
+              ),
+            ),
+            const PopupMenuItem<String>(
+              value: 'dashboard',
+              child: ListTile(
+                leading: Icon(
+                  Icons.dashboard_outlined,
+                  color: Colors.deepOrange,
+                ),
+                title: Text('Dashboard'),
+              ),
+            ),
+            const PopupMenuItem<String>(
+              value: 'profile',
+              child: ListTile(
+                leading: Icon(Icons.person_outline, color: Colors.purple),
+                title: Text('Mein Profil'),
+              ),
+            ),
+          ],
+        ),
+
         title: Text(
           widget.projectName,
           style: const TextStyle(
@@ -959,91 +1035,9 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
             fontWeight: FontWeight.bold,
           ),
         ),
+
+        // ⚙️ 2. FUNKTIONALE BUTTONS (Rechts: Aktionen fürs Kanban-Board)
         actions: [
-          // 🏠 1. Zurück zur Projekt-Übersicht (Home)
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 8.0),
-            child: Container(
-              decoration: BoxDecoration(
-                color: Colors.grey.shade100,
-                shape: BoxShape.circle,
-                border: Border.all(color: Colors.grey.shade300, width: 1),
-              ),
-              child: IconButton(
-                tooltip: 'Projekte (Home)',
-                icon: const Icon(
-                  Icons.grid_view_rounded,
-                  size: 20,
-                  color: Colors.black87,
-                ),
-                onPressed: () {
-                  Navigator.pushAndRemoveUntil(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const ProjectGridScreen(),
-                    ), // Hier den echten Klassennamen einsetzen!
-                    (route) => false,
-                  );
-                },
-              ),
-            ),
-          ),
-
-          // 📊 2. Zum Dashboard
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 8.0),
-            child: Container(
-              decoration: BoxDecoration(
-                color: Colors.grey.shade100,
-                shape: BoxShape.circle,
-                border: Border.all(color: Colors.grey.shade300, width: 1),
-              ),
-              child: IconButton(
-                tooltip: 'Dashboard',
-                icon: const Icon(
-                  Icons.dashboard_outlined,
-                  size: 20,
-                  color: Colors.deepOrange,
-                ),
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const UserDashboardScreen(),
-                    ),
-                  );
-                },
-              ),
-            ),
-          ),
-
-          // 👤 3. Zum Profil
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 8.0),
-            child: Container(
-              decoration: BoxDecoration(
-                color: Colors.grey.shade100,
-                shape: BoxShape.circle,
-                border: Border.all(color: Colors.grey.shade300, width: 1),
-              ),
-              child: IconButton(
-                tooltip: 'Mein Profil',
-                icon: const Icon(
-                  Icons.person_outline,
-                  size: 20,
-                  color: Colors.purple,
-                ),
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const ProfileScreen()),
-                  );
-                },
-              ),
-            ),
-          ),
-
-          // 4. Mitglied einladen (mit dezentem Hintergrund-Kreis)
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 8.0),
             child: Container(
@@ -1063,8 +1057,6 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
               ),
             ),
           ),
-
-          // 5. Spalten ordnen / Reorder Modus
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 8.0),
             child: Container(
@@ -1111,7 +1103,9 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
                         }
                       }
                     }
-                    await fetchBoardData(showLoader: false);
+                    if (mounted) {
+                      await fetchBoardData(showLoader: false);
+                    }
                   } else {
                     setState(() {
                       _isReorderMode = true;
@@ -1121,8 +1115,6 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
               ),
             ),
           ),
-
-          // 6. Projekt-Chat
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 8.0),
             child: Container(
@@ -1153,8 +1145,6 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
               ),
             ),
           ),
-
-          // 7. Aktualisieren
           Padding(
             padding: const EdgeInsets.only(
               left: 4.0,
@@ -1175,7 +1165,7 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
                   size: 20,
                   color: Colors.black87,
                 ),
-                onPressed: fetchBoardData,
+                onPressed: () => fetchBoardData(showLoader: true),
               ),
             ),
           ),
@@ -1322,7 +1312,7 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
             MaterialPageRoute(
               builder: (_) => TaskDetailScreen(
                 task: taskData,
-                projectId: widget.projectId, // 👈 Direkt übergeben
+                projectId: widget.projectId,
                 onTaskUpdated: () => fetchBoardData(showLoader: false),
               ),
             ),

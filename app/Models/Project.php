@@ -10,9 +10,9 @@ class Project extends Model
     use HasFactory;
 
     protected $fillable = [
-        'name', 
-        'description', 
-        'sort_order', 
+        'name',
+        'description',
+        'sort_order',
         'user_id' // Das behalten wir als "Owner" (Ersteller) bei
     ];
 
@@ -33,10 +33,35 @@ class Project extends Model
     {
         return $this->hasMany(Container::class)->orderBy('position');
     }
-    
+
     // Die Kommentare des Projekts
     public function comments()
     {
         return $this->morphMany(Comment::class, 'commentable');
+    }
+    // 1. Nur die Dateien, die direkt am Projekt hochgeladen wurden:
+    public function attachments()
+    {
+        return $this->hasMany(Attachment::class);
+    }
+
+    // 2. Alle Dateien des Projekts INKLUSIVE aller Task-Dateien:
+    public function getAllAttachmentsAttribute()
+    {
+        // Eigene Projekt-Dateien holen
+        $projectFiles = $this->attachments;
+
+        // Alle Task-Dateien über die Container und Tasks einsammeln
+        $taskFiles = $this->containers()
+            ->with('tasks.attachments')
+            ->get()
+            ->flatMap(function ($container) {
+                return $container->tasks->flatMap(function ($task) {
+                    return $task->attachments;
+                });
+            });
+
+        // Beide Listen zusammenführen
+        return $projectFiles->merge($taskFiles);
     }
 }

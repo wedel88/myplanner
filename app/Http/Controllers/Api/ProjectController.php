@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Project;
 use Illuminate\Http\Request;
+use App\Models\Attachment;
+use Illuminate\Support\Facades\Storage;
 
 class ProjectController extends Controller
 {
@@ -26,8 +28,13 @@ class ProjectController extends Controller
     // Ein einzelnes Projekt mit Containern und Aufgaben anzeigen
     public function show(Project $project)
     {
-        // Wir laden die Container und Aufgaben direkt mit (Eager Loading)
-        return response()->json($project->load('containers.tasks'), 200);
+        // Lädt das Projekt mit allen Anhängen (User) sowie allen Containern, Tasks und deren Anhängen
+        $project->load([
+            'attachments.user',
+            'containers.tasks.attachments.user'
+        ]);
+
+        return response()->json($project, 200);
     }
 
     // Ein Projekt löschen
@@ -45,7 +52,7 @@ class ProjectController extends Controller
                     $query->orderBy('position');
                 },
                 'tasks.subtasks',
-                'tasks.attachments'
+                'tasks.attachments.user'
             ])
             ->get();
 
@@ -146,5 +153,51 @@ class ProjectController extends Controller
     public function projectUsers(Project $project)
     {
         return $project->users;
+    }
+
+
+    // 1. Alle Dateien eines Projekts auflisten (Projektweit + alle Tasks im Projekt)
+    public function projectFiles($projectId)
+    {
+        // 1. Alle Task-IDs ermitteln, die zu diesem Projekt gehören
+        $taskIds = \App\Models\Task::whereHas('container', function ($q) use ($projectId) {
+            $q->where('project_id', $projectId);
+        })->pluck('id');
+
+        // 2. Alle Attachments einsammeln (Projektweit, direkte Tasks & via Chat/Kommentare)
+        $attachments = Attachment::with(['user', 'task', 'comment'])
+            ->where(function ($query) use ($projectId, $taskIds) {
+                $query->where('project_id', $projectId)
+                    ->orWhereIn('task_id', $taskIds)
+                    ->orWhereHas('comment', function ($q) use ($projectId, $taskIds) {
+                        $q->where(function ($sub) use ($projectId, $taskIds) {
+                            $sub->where('commentable_type', 'App\Models\Project')
+                                ->where('commentable_id', $projectId);
+                        })->orWhere(function ($sub) use ($taskIds) {
+                            $sub->where('commentable_type', 'App\Models\Task')
+                                ->whereIn('commentable_id', $taskIds);
+                        });
+                    });
+            })
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        return response()->json($attachments, 200);
+    }
+
+    // 2. Einzelne Datei löschen
+    public function destroyAttachment($id)
+    {
+        $attachment = Attachment::findOrFail($id);
+
+        // Datei physisch aus dem Storage löschen
+        if (Storage::disk('public')->exists($attachment->file_path)) {
+            Storage::disk('public')->delete($attachment->file_path);
+        }
+
+        // Datenbankeintrag löschen
+        $attachment->delete();
+
+        return response()->json(['message' => 'Datei erfolgreich gelöscht'], 200);
     }
 }

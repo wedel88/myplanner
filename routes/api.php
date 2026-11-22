@@ -12,7 +12,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ProfileController;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\Response;
-use App\Http\Controllers\Api\TaskAttachmentController; //
+use App\Http\Controllers\Api\AttachmentController; //
 
 // ==========================================
 // ÖFFENTLICHE ROUTEN (Kein Login nötig)
@@ -71,6 +71,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/comments', [CommentController::class, 'index']);
     Route::post('/comments', [CommentController::class, 'store']);
     Route::delete('/comments/{comment}', [CommentController::class, 'destroy']);
+    Route::put('/comments/{comment}', [CommentController::class, 'update']);
 
     Route::get('/dashboard/tasks', [DashboardController::class, 'index']);
     //Profile
@@ -79,7 +80,14 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/profile', [ProfileController::class, 'update']);
 
     //Attachments
-    Route::post('/tasks/{task}/attachments', [TaskAttachmentController::class, 'store']);
-    Route::delete('/task-attachments/{attachment}', [TaskAttachmentController::class, 'destroy']);
+    // Task-Anhänge
+Route::post('/tasks/{task}/attachments', [AttachmentController::class, 'storeForTask']);
 
+// Projekt-Anhänge (NEU)
+Route::post('/projects/{project}/attachments', [AttachmentController::class, 'storeForProject']);
+
+// Universelles Löschen über die Attachment-ID
+Route::delete('/attachments/{attachment}', [AttachmentController::class, 'destroy']);
+Route::get('/projects/{projectId}/files', [ProjectController::class, 'projectFiles']);
+Route::delete('/attachments/{id}', [ProjectController::class, 'destroyAttachment']);
 });

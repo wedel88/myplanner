@@ -23,7 +23,6 @@ class ContainerController extends Controller
                 $q->orderBy('position');
             },
             'tasks.subtasks',
-            'tasks.attachments' // 👈 HIER MUSS DAS HIN!
         ])->orderBy('position')->get(), 200);
     }
 
