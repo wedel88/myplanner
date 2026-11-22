@@ -15,11 +15,13 @@ class ProjectController extends Controller
     {
         $user = auth()->user();
 
-        // Lade Projekte, die der User erstellt hat ODER in denen er Mitglied ist
         $projects = Project::where('user_id', $user->id)
-            ->orWhereHas('users', function ($query) use ($user) {
-                $query->where('users.id', $user->id);
+            ->orWhereHas('group', function ($query) use ($user) {
+                $query->whereHas('users', function ($subQuery) use ($user) {
+                    $subQuery->where('users.id', $user->id);
+                });
             })
+            ->with('group')
             ->get();
 
         return response()->json($projects, 200);
@@ -28,8 +30,9 @@ class ProjectController extends Controller
     // Ein einzelnes Projekt mit Containern und Aufgaben anzeigen
     public function show(Project $project)
     {
-        // Lädt das Projekt mit allen Anhängen (User) sowie allen Containern, Tasks und deren Anhängen
+        // Lädt das Projekt inklusive Gruppe, Anhängen und Tasks
         $project->load([
+            'group',
             'attachments.user',
             'containers.tasks.attachments.user'
         ]);
@@ -64,14 +67,15 @@ class ProjectController extends Controller
         $validated = $request->validate([
             'name' => 'sometimes|required|string|max:255',
             'description' => 'nullable|string',
-            'sort_order' => 'sometimes|integer'
+            'sort_order' => 'sometimes|integer',
+            'group_id' => 'nullable|exists:groups,id', // 👈 HIER HINZUFÜGEN
         ]);
 
         $project->update($validated);
 
         return response()->json([
             'message' => 'Projekt erfolgreich aktualisiert!',
-            'data' => $project
+            'data' => $project->load('group') // 👈 Lädt die Gruppe direkt mit
         ], 200);
     }
 
@@ -96,15 +100,16 @@ class ProjectController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'description' => 'nullable|string',
+            'group_id' => 'nullable|exists:groups,id', // 👈 HIER HINZUFÜGEN
         ]);
 
-        // Projekt für den aktuellen User erstellen
+        // Projekt für den aktuellen User erstellen (inklusive group_id falls mitgeschickt)
         $project = auth()->user()->projects()->create($validated);
 
         // Den Ersteller automatisch als Mitglied hinzufügen
         $project->users()->attach(auth()->id());
 
-        return response()->json($project, 201);
+        return response()->json($project->load('group'), 201); // 👈 Optional: direkt mit Gruppe zurückgeben
     }
     public function addMember(Request $request, Project $project)
     {

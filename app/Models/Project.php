@@ -13,7 +13,8 @@ class Project extends Model
         'name',
         'description',
         'sort_order',
-        'user_id' // Das behalten wir als "Owner" (Ersteller) bei
+        'group_id',
+        'user_id',
     ];
 
     // Der Besitzer (Ersteller) des Projekts
@@ -63,5 +64,9 @@ class Project extends Model
 
         // Beide Listen zusammenführen
         return $projectFiles->merge($taskFiles);
+    }
+    public function group()
+    {
+        return $this->belongsTo(Group::class);
     }
 }

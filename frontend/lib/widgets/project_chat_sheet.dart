@@ -322,6 +322,14 @@ class _ChatSheetState extends State<ChatSheet> {
             : '';
 
         final isMyComment = comment['user_id'] == _currentUserId;
+        final rawAvatarPath = comment['user']?['avatar'] ?? '';
+        final cleanedAvatarPath = rawAvatarPath.replaceAll(r'\/', '/');
+
+        final avatarUrl = cleanedAvatarPath.isNotEmpty
+            ? (cleanedAvatarPath.startsWith('http')
+                  ? cleanedAvatarPath
+                  : 'http://127.0.0.1:8000/api/$cleanedAvatarPath')
+            : null;
 
         List attachmentsList = [];
         if (comment['attachments'] is List) {
@@ -340,11 +348,18 @@ class _ChatSheetState extends State<ChatSheet> {
                   CircleAvatar(
                     radius: 14,
                     backgroundColor: Colors.blueGrey.shade200,
-                    child: const Icon(
-                      Icons.person,
-                      size: 16,
-                      color: Colors.white,
-                    ),
+                    // 2. Netzwerkbild laden, wenn eine URL vorhanden ist
+                    backgroundImage: avatarUrl != null
+                        ? NetworkImage(avatarUrl)
+                        : null,
+                    // 3. Fallback-Icon, falls kein Avatar hochgeladen wurde
+                    child: avatarUrl == null
+                        ? const Icon(
+                            Icons.person,
+                            size: 16,
+                            color: Colors.white,
+                          )
+                        : null,
                   ),
                   const SizedBox(width: 8),
                   Text(

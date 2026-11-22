@@ -389,419 +389,432 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     // Prüfen, ob wir auf einem PC / breiten Bildschirm sind
     final bool isDesktop = MediaQuery.of(context).size.width > 800;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Task Details'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.forum, color: Colors.blue),
-            onPressed: () {
-              showModalBottomSheet(
-                context: context,
-                isScrollControlled: true,
-                shape: const RoundedRectangleBorder(
-                  borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-                ),
-                builder: (_) => ChatSheet(
-                  targetId: _task['id'],
-                  targetType: 'Task',
-                  targetName: _task['title'] ?? 'Aufgabe',
-                ),
-              );
-            },
-          ),
-          if (_isSaving)
-            const Padding(
-              padding: EdgeInsets.all(16.0),
-              child: SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              ),
-            )
-          else if (_isEditing)
+    return PopScope(
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) {
+          widget.onTaskUpdated(); // Triggert das Refresh im Hintergrund beim Verlassen
+        }
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('Task Details'),
+          actions: [
             IconButton(
-              icon: const Icon(Icons.save, color: Colors.green),
-              onPressed: _saveChanges,
-              tooltip: 'Speichern',
-            )
-          else
-            IconButton(
-              icon: const Icon(Icons.edit),
-              onPressed: () => setState(() => _isEditing = true),
-              tooltip: 'Bearbeiten',
+              icon: const Icon(Icons.forum, color: Colors.blue),
+              onPressed: () {
+                showModalBottomSheet(
+                  context: context,
+                  isScrollControlled: true,
+                  shape: const RoundedRectangleBorder(
+                    borderRadius: BorderRadius.vertical(
+                      top: Radius.circular(20),
+                    ),
+                  ),
+                  builder: (_) => ChatSheet(
+                    targetId: _task['id'],
+                    targetType: 'Task',
+                    targetName: _task['title'] ?? 'Aufgabe',
+                  ),
+                );
+              },
             ),
-        ],
-      ),
-      // 👉 HIER WIRD DER INHALT AUF DEM PC SCHLANK & ZENTRIERT GEHALTEN
-      body: Center(
-        child: ConstrainedBox(
-          constraints: BoxConstraints(
-            maxWidth: isDesktop ? 800 : double.infinity,
-          ),
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // 1. TITEL
-                _isEditing
-                    ? TextField(
-                        controller: _titleController,
-                        decoration: const InputDecoration(
-                          labelText: 'Titel',
-                          border: OutlineInputBorder(),
+            if (_isSaving)
+              const Padding(
+                padding: EdgeInsets.all(16.0),
+                child: SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              )
+            else if (_isEditing)
+              IconButton(
+                icon: const Icon(Icons.save, color: Colors.green),
+                onPressed: _saveChanges,
+                tooltip: 'Speichern',
+              )
+            else
+              IconButton(
+                icon: const Icon(Icons.edit),
+                onPressed: () => setState(() => _isEditing = true),
+                tooltip: 'Bearbeiten',
+              ),
+          ],
+        ),
+        // 👉 HIER WIRD DER INHALT AUF DEM PC SCHLANK & ZENTRIERT GEHALTEN
+        body: Center(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: isDesktop ? 800 : double.infinity,
+            ),
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // 1. TITEL
+                  _isEditing
+                      ? TextField(
+                          controller: _titleController,
+                          decoration: const InputDecoration(
+                            labelText: 'Titel',
+                            border: OutlineInputBorder(),
+                          ),
+                          style: const TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        )
+                      : Text(
+                          _task['title'] ?? 'Kein Titel',
+                          style: Theme.of(context).textTheme.headlineSmall
+                              ?.copyWith(fontWeight: FontWeight.bold),
                         ),
-                        style: const TextStyle(
-                          fontSize: 20,
+                  const SizedBox(height: 16),
+
+                  // 2. STATUS & ZUWEISUNG (Auf PC nebeneinander, mobil untereinander)
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      final isWide = constraints.maxWidth > 500;
+                      final statusWidget = _isEditing
+                          ? DropdownButtonFormField<String>(
+                              initialValue: _selectedStatus,
+                              decoration: const InputDecoration(
+                                labelText: 'Status',
+                                border: OutlineInputBorder(),
+                                isDense: true,
+                              ),
+                              items: const [
+                                DropdownMenuItem(
+                                  value: 'open',
+                                  child: Text('Offen'),
+                                ),
+                                DropdownMenuItem(
+                                  value: 'in_progress',
+                                  child: Text('In Bearbeitung'),
+                                ),
+                                DropdownMenuItem(
+                                  value: 'completed',
+                                  child: Text('Erledigt'),
+                                ),
+                                DropdownMenuItem(
+                                  value: 'closed_incomplete',
+                                  child: Text('Unvollständig geschlossen'),
+                                ),
+                              ],
+                              onChanged: (val) =>
+                                  setState(() => _selectedStatus = val!),
+                            )
+                          : _buildStatusChip(_task['status']);
+
+                      final userWidget = _isEditing
+                          ? DropdownButtonFormField<int?>(
+                              initialValue:
+                                  _projectUsers.any(
+                                    (u) => u['id'] == _selectedUserId,
+                                  )
+                                  ? _selectedUserId
+                                  : null,
+                              decoration: const InputDecoration(
+                                labelText: 'Zugewiesen an',
+                                border: OutlineInputBorder(),
+                                isDense: true,
+                              ),
+                              items: [
+                                const DropdownMenuItem<int?>(
+                                  value: null,
+                                  child: Text('Niemand'),
+                                ),
+                                ..._projectUsers.map((user) {
+                                  return DropdownMenuItem<int?>(
+                                    value: user['id'],
+                                    child: Text(
+                                      user['name'] ?? 'User ${user['id']}',
+                                    ),
+                                  );
+                                }),
+                              ],
+                              onChanged: (val) =>
+                                  setState(() => _selectedUserId = val),
+                            )
+                          : Row(
+                              children: [
+                                const Icon(
+                                  Icons.person,
+                                  size: 18,
+                                  color: Colors.blue,
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  _selectedUserId == null
+                                      ? 'Niemand zugewiesen'
+                                      : (_projectUsers.firstWhere(
+                                              (u) => u['id'] == _selectedUserId,
+                                              orElse: () => {
+                                                'name': 'Zugewiesen',
+                                              },
+                                            )['name'] ??
+                                            'Zugewiesen'),
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            );
+
+                      if (isWide && _isEditing) {
+                        return Row(
+                          children: [
+                            Expanded(child: statusWidget),
+                            const SizedBox(width: 16),
+                            Expanded(child: userWidget),
+                          ],
+                        );
+                      } else {
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            statusWidget,
+                            const SizedBox(height: 16),
+                            userWidget,
+                          ],
+                        );
+                      }
+                    },
+                  ),
+
+                  const Divider(height: 32),
+
+                  // 3. BESCHREIBUNG
+                  const Text(
+                    'Beschreibung',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  ),
+                  const SizedBox(height: 8),
+                  _isEditing
+                      ? TextField(
+                          controller: _descController,
+                          maxLines: 4,
+                          decoration: const InputDecoration(
+                            border: OutlineInputBorder(),
+                            hintText: 'Beschreibung eingeben...',
+                          ),
+                        )
+                      : Container(
+                          padding: const EdgeInsets.all(12),
+                          width: double.infinity,
+                          decoration: BoxDecoration(
+                            color: Colors.grey.withOpacity(0.05),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            _task['description'] ??
+                                'Keine Beschreibung vorhanden.',
+                            style: const TextStyle(fontSize: 14),
+                          ),
+                        ),
+
+                  const Divider(height: 32),
+                  const Divider(height: 32),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Dateianhänge',
+                        style: TextStyle(
+                          fontSize: 16,
                           fontWeight: FontWeight.bold,
                         ),
-                      )
-                    : Text(
-                        _task['title'] ?? 'Kein Titel',
-                        style: Theme.of(context).textTheme.headlineSmall
-                            ?.copyWith(fontWeight: FontWeight.bold),
                       ),
-                const SizedBox(height: 16),
+                      const SizedBox(height: 8),
 
-                // 2. STATUS & ZUWEISUNG (Auf PC nebeneinander, mobil untereinander)
-                LayoutBuilder(
-                  builder: (context, constraints) {
-                    final isWide = constraints.maxWidth > 500;
-                    final statusWidget = _isEditing
-                        ? DropdownButtonFormField<String>(
-                            initialValue: _selectedStatus,
-                            decoration: const InputDecoration(
-                              labelText: 'Status',
-                              border: OutlineInputBorder(),
-                              isDense: true,
-                            ),
-                            items: const [
-                              DropdownMenuItem(
-                                value: 'open',
-                                child: Text('Offen'),
-                              ),
-                              DropdownMenuItem(
-                                value: 'in_progress',
-                                child: Text('In Bearbeitung'),
-                              ),
-                              DropdownMenuItem(
-                                value: 'completed',
-                                child: Text('Erledigt'),
-                              ),
-                              DropdownMenuItem(
-                                value: 'closed_incomplete',
-                                child: Text('Unvollständig geschlossen'),
-                              ),
-                            ],
-                            onChanged: (val) =>
-                                setState(() => _selectedStatus = val!),
-                          )
-                        : _buildStatusChip(_task['status']);
-
-                    final userWidget = _isEditing
-                        ? DropdownButtonFormField<int?>(
-                            initialValue:
-                                _projectUsers.any(
-                                  (u) => u['id'] == _selectedUserId,
-                                )
-                                ? _selectedUserId
-                                : null,
-                            decoration: const InputDecoration(
-                              labelText: 'Zugewiesen an',
-                              border: OutlineInputBorder(),
-                              isDense: true,
-                            ),
-                            items: [
-                              const DropdownMenuItem<int?>(
-                                value: null,
-                                child: Text('Niemand'),
-                              ),
-                              ..._projectUsers.map((user) {
-                                return DropdownMenuItem<int?>(
-                                  value: user['id'],
-                                  child: Text(
-                                    user['name'] ?? 'User ${user['id']}',
-                                  ),
-                                );
-                              }),
-                            ],
-                            onChanged: (val) =>
-                                setState(() => _selectedUserId = val),
-                          )
-                        : Row(
-                            children: [
-                              const Icon(
-                                Icons.person,
-                                size: 18,
-                                color: Colors.blue,
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                _selectedUserId == null
-                                    ? 'Niemand zugewiesen'
-                                    : (_projectUsers.firstWhere(
-                                            (u) => u['id'] == _selectedUserId,
-                                            orElse: () => {
-                                              'name': 'Zugewiesen',
-                                            },
-                                          )['name'] ??
-                                          'Zugewiesen'),
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ],
-                          );
-
-                    if (isWide && _isEditing) {
-                      return Row(
-                        children: [
-                          Expanded(child: statusWidget),
-                          const SizedBox(width: 16),
-                          Expanded(child: userWidget),
-                        ],
-                      );
-                    } else {
-                      return Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          statusWidget,
-                          const SizedBox(height: 16),
-                          userWidget,
-                        ],
-                      );
-                    }
-                  },
-                ),
-
-                const Divider(height: 32),
-
-                // 3. BESCHREIBUNG
-                const Text(
-                  'Beschreibung',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                ),
-                const SizedBox(height: 8),
-                _isEditing
-                    ? TextField(
-                        controller: _descController,
-                        maxLines: 4,
-                        decoration: const InputDecoration(
-                          border: OutlineInputBorder(),
-                          hintText: 'Beschreibung eingeben...',
-                        ),
-                      )
-                    : Container(
-                        padding: const EdgeInsets.all(12),
-                        width: double.infinity,
-                        decoration: BoxDecoration(
-                          color: Colors.grey.withOpacity(0.05),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          _task['description'] ??
-                              'Keine Beschreibung vorhanden.',
-                          style: const TextStyle(fontSize: 14),
-                        ),
+                      // 1. Der Upload-Button
+                      ElevatedButton.icon(
+                        onPressed: () async {
+                          // ✅ Korrigiert zu _task['id']
+                          await _uploadAttachment();
+                        },
+                        icon: const Icon(Icons.upload_file, size: 18),
+                        label: const Text('Datei hochladen'),
                       ),
+                      const SizedBox(height: 12),
 
-                const Divider(height: 32),
-                const Divider(height: 32),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Dateianhänge',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
+                      // 2. Die Liste der Anhänge
+                      _buildAttachmentsList(_task['attachments'] ?? []),
+                    ],
+                  ),
 
-                    // 1. Der Upload-Button
-                    ElevatedButton.icon(
-                      onPressed: () async {
-                        // ✅ Korrigiert zu _task['id']
-                        await _uploadAttachment();
+                  const Divider(height: 32),
+
+                  // 4. ZEITANGABEN
+                  const Text(
+                    'Zeitangaben',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  ),
+                  const SizedBox(height: 8),
+
+                  _buildInfoRow(
+                    Icons.calendar_today,
+                    'Erstellt am',
+                    _formatDate(_task['created_at']),
+                  ),
+
+                  if (_isEditing)
+                    _buildEditableDateRow(
+                      'Geplanter Start',
+                      _selectedStartDate,
+                      (newDate) {
+                        setState(() => _selectedStartDate = newDate);
                       },
-                      icon: const Icon(Icons.upload_file, size: 18),
-                      label: const Text('Datei hochladen'),
+                    )
+                  else
+                    _buildInfoRow(
+                      Icons.play_arrow,
+                      'Geplanter Start',
+                      _formatDate(_task['planned_start_at']),
                     ),
-                    const SizedBox(height: 12),
 
-                    // 2. Die Liste der Anhänge
-                    _buildAttachmentsList(_task['attachments'] ?? []),
-                  ],
-                ),
+                  if (_isEditing)
+                    _buildEditableDateRow('Geplantes Ende', _selectedEndDate, (
+                      newDate,
+                    ) {
+                      setState(() => _selectedEndDate = newDate);
+                    })
+                  else
+                    _buildInfoRow(
+                      Icons.flag,
+                      'Geplantes Ende',
+                      _formatDate(_task['planned_end_at']),
+                    ),
 
-                const Divider(height: 32),
+                  if (_isEditing)
+                    _buildEditableDateRow(
+                      'Ablaufdatum (Due)',
+                      _selectedDueDate,
+                      (newDate) {
+                        setState(() => _selectedDueDate = newDate);
+                      },
+                    )
+                  else
+                    _buildInfoRow(
+                      Icons.warning,
+                      'Ablaufdatum (Due)',
+                      _formatDate(_task['due_at']),
+                      isWarning: true,
+                    ),
 
-                // 4. ZEITANGABEN
-                const Text(
-                  'Zeitangaben',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                ),
-                const SizedBox(height: 8),
+                  const Divider(height: 32),
 
-                _buildInfoRow(
-                  Icons.calendar_today,
-                  'Erstellt am',
-                  _formatDate(_task['created_at']),
-                ),
-
-                if (_isEditing)
-                  _buildEditableDateRow('Geplanter Start', _selectedStartDate, (
-                    newDate,
-                  ) {
-                    setState(() => _selectedStartDate = newDate);
-                  })
-                else
-                  _buildInfoRow(
-                    Icons.play_arrow,
-                    'Geplanter Start',
-                    _formatDate(_task['planned_start_at']),
+                  // 5. SUBTASKS / TEILPUNKTE
+                  const Text(
+                    'Teilpunkte (Subtasks)',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                   ),
+                  const SizedBox(height: 8),
 
-                if (_isEditing)
-                  _buildEditableDateRow('Geplantes Ende', _selectedEndDate, (
-                    newDate,
-                  ) {
-                    setState(() => _selectedEndDate = newDate);
-                  })
-                else
-                  _buildInfoRow(
-                    Icons.flag,
-                    'Geplantes Ende',
-                    _formatDate(_task['planned_end_at']),
-                  ),
+                  ...(_task['subtasks'] as List? ?? []).map((subtask) {
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 2.0),
+                      child: Row(
+                        children: [
+                          // Checkbox zum Abhaken
+                          Checkbox(
+                            value: subtask['is_completed'] == true,
+                            onChanged: (val) async {
+                              if (val != null) {
+                                // 1. Lokales UI sofort anpassen
+                                setState(() {
+                                  subtask['is_completed'] = val;
+                                });
 
-                if (_isEditing)
-                  _buildEditableDateRow('Ablaufdatum (Due)', _selectedDueDate, (
-                    newDate,
-                  ) {
-                    setState(() => _selectedDueDate = newDate);
-                  })
-                else
-                  _buildInfoRow(
-                    Icons.warning,
-                    'Ablaufdatum (Due)',
-                    _formatDate(_task['due_at']),
-                    isWarning: true,
-                  ),
+                                // 2. An das Backend senden (subtask['id'] übergeben)
+                                final subId =
+                                    int.tryParse(subtask['id'].toString()) ?? 0;
+                                if (subId > 0) {
+                                  // Wir übergeben den vorherigen Status, da deine _toggleSubtask Methode '!currentStatus' rechnet
+                                  await _toggleSubtask(subId, !val);
+                                }
+                              }
+                            },
+                          ),
+                          // Subtask Text (durchgestrichen wenn erledigt)
+                          Expanded(
+                            child: Text(
+                              subtask['title'] ?? '',
+                              style: TextStyle(
+                                decoration: subtask['is_completed'] == true
+                                    ? TextDecoration.lineThrough
+                                    : null,
+                                color: subtask['is_completed'] == true
+                                    ? Colors.grey
+                                    : Colors.black,
+                              ),
+                            ),
+                          ),
+                          // Mülleimer-Button zum Löschen
+                          IconButton(
+                            icon: const Icon(
+                              Icons.delete_outline,
+                              color: Colors.red,
+                              size: 20,
+                            ),
+                            onPressed: () => _deleteSubtask(subtask['id']),
+                            tooltip: 'Teilpunkt löschen',
+                          ),
+                        ],
+                      ),
+                    );
+                  }),
 
-                const Divider(height: 32),
-
-                // 5. SUBTASKS / TEILPUNKTE
-                const Text(
-                  'Teilpunkte (Subtasks)',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                ),
-                const SizedBox(height: 8),
-
-                ...(_task['subtasks'] as List? ?? []).map((subtask) {
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 2.0),
+                  // Eingabefeld für neue Subtasks (bleibt wie gehabt)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8.0),
                     child: Row(
                       children: [
-                        // Checkbox zum Abhaken
-                        Checkbox(
-                          value: subtask['is_completed'] == true,
-                          onChanged: (val) async {
-                            if (val != null) {
-                              // 1. Lokales UI sofort anpassen
-                              setState(() {
-                                subtask['is_completed'] = val;
-                              });
-
-                              // 2. An das Backend senden (subtask['id'] übergeben)
-                              final subId =
-                                  int.tryParse(subtask['id'].toString()) ?? 0;
-                              if (subId > 0) {
-                                // Wir übergeben den vorherigen Status, da deine _toggleSubtask Methode '!currentStatus' rechnet
-                                await _toggleSubtask(subId, !val);
-                              }
-                            }
-                          },
-                        ),
-                        // Subtask Text (durchgestrichen wenn erledigt)
                         Expanded(
-                          child: Text(
-                            subtask['title'] ?? '',
-                            style: TextStyle(
-                              decoration: subtask['is_completed'] == true
-                                  ? TextDecoration.lineThrough
-                                  : null,
-                              color: subtask['is_completed'] == true
-                                  ? Colors.grey
-                                  : Colors.black,
+                          child: TextField(
+                            controller: _newSubtaskController,
+                            decoration: const InputDecoration(
+                              hintText: 'Neuen Teilpunkt hinzufügen...',
+                              isDense: true,
+                              border: OutlineInputBorder(),
                             ),
+                            onSubmitted: (_) => _addSubtask(),
                           ),
                         ),
-                        // Mülleimer-Button zum Löschen
+                        const SizedBox(width: 8),
                         IconButton(
                           icon: const Icon(
-                            Icons.delete_outline,
-                            color: Colors.red,
-                            size: 20,
+                            Icons.add_circle,
+                            color: Colors.blue,
+                            size: 32,
                           ),
-                          onPressed: () => _deleteSubtask(subtask['id']),
-                          tooltip: 'Teilpunkt löschen',
+                          onPressed: _addSubtask,
+                          tooltip: 'Hinzufügen',
                         ),
                       ],
                     ),
-                  );
-                }),
-
-                // Eingabefeld für neue Subtasks (bleibt wie gehabt)
-                Padding(
-                  padding: const EdgeInsets.only(top: 8.0),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: _newSubtaskController,
-                          decoration: const InputDecoration(
-                            hintText: 'Neuen Teilpunkt hinzufügen...',
-                            isDense: true,
-                            border: OutlineInputBorder(),
-                          ),
-                          onSubmitted: (_) => _addSubtask(),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      IconButton(
-                        icon: const Icon(
-                          Icons.add_circle,
-                          color: Colors.blue,
-                          size: 32,
-                        ),
-                        onPressed: _addSubtask,
-                        tooltip: 'Hinzufügen',
-                      ),
-                    ],
                   ),
-                ),
 
-                const Divider(height: 32),
+                  const Divider(height: 32),
 
-                // 6. KOMMENTARE
-                const Text(
-                  'Kommentare',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                ),
-                const SizedBox(height: 8),
+                  // 6. KOMMENTARE
+                  const Text(
+                    'Kommentare',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  ),
+                  const SizedBox(height: 8),
 
-                ChatSheet(
-                  targetId: _task['id'],
-                  targetType: 'Task',
-                  targetName: _task['title'] ?? 'Aufgabe',
-                  isEmbedded: true,
-                ),
+                  ChatSheet(
+                    targetId: _task['id'],
+                    targetType: 'Task',
+                    targetName: _task['title'] ?? 'Aufgabe',
+                    isEmbedded: true,
+                  ),
 
-                const SizedBox(height: 32),
-              ],
+                  const SizedBox(height: 32),
+                ],
+              ),
             ),
           ),
         ),

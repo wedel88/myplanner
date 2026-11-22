@@ -20,6 +20,7 @@ class ProjectGridScreen extends StatefulWidget {
 
 class _ProjectGridScreenState extends State<ProjectGridScreen> {
   List<dynamic> _projects = [];
+  List<dynamic> _groups = [];
   bool _isLoading = true;
 
   final String baseUrl = 'http://127.0.0.1:8000/api';
@@ -28,6 +29,7 @@ class _ProjectGridScreenState extends State<ProjectGridScreen> {
   void initState() {
     super.initState();
     _fetchProjects();
+    _fetchGroups();
   }
 
   // Projekte von der API laden
@@ -63,6 +65,23 @@ class _ProjectGridScreenState extends State<ProjectGridScreen> {
     }
   }
 
+  Future<void> _fetchGroups() async {
+    final headers = await AuthService.getHeaders();
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/groups'),
+        headers: headers,
+      );
+      if (response.statusCode == 200 && mounted) {
+        setState(() {
+          _groups = jsonDecode(response.body);
+        });
+      }
+    } catch (e) {
+      debugPrint('Fehler beim Laden der Gruppen: $e');
+    }
+  }
+
   // Projekt löschen
   Future<void> _deleteProject(int id) async {
     final headers = await AuthService.getHeaders();
@@ -77,6 +96,86 @@ class _ProjectGridScreenState extends State<ProjectGridScreen> {
     if (response.statusCode == 200 || response.statusCode == 204) {
       await _fetchProjects();
     }
+  }
+
+  void _showCreateGroupDialog() {
+    final nameController = TextEditingController();
+    final descController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Neue Gruppe erstellen'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: nameController,
+              decoration: const InputDecoration(
+                labelText: 'Gruppenname',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: descController,
+              decoration: const InputDecoration(
+                labelText: 'Beschreibung (optional)',
+                border: OutlineInputBorder(),
+              ),
+              maxLines: 2,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Abbrechen'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final name = nameController.text.trim();
+              if (name.isEmpty) return;
+
+              final headers = await AuthService.getHeaders();
+              try {
+                final response = await http.post(
+                  Uri.parse('$baseUrl/groups'),
+                  headers: headers,
+                  body: jsonEncode({
+                    'name': name,
+                    'description': descController.text.trim(),
+                  }),
+                );
+
+                if (!mounted) return;
+
+                if (response.statusCode == 201) {
+                  Navigator.pop(context);
+                  _fetchGroups(); // Gruppenliste aktualisieren
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Gruppe erfolgreich erstellt!'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Fehler: ${response.statusCode}'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              } catch (e) {
+                debugPrint('Verbindungsfehler: $e');
+              }
+            },
+            child: const Text('Erstellen'),
+          ),
+        ],
+      ),
+    );
   }
 
   // Dialog zum Bearbeiten oder Erstellen
@@ -172,6 +271,11 @@ class _ProjectGridScreenState extends State<ProjectGridScreen> {
                 MaterialPageRoute(builder: (_) => const ProfileScreen()),
               );
             },
+          ),
+          IconButton(
+            icon: const Icon(Icons.group_add),
+            tooltip: 'Neue Gruppe erstellen',
+            onPressed: _showCreateGroupDialog,
           ),
         ],
       ),
@@ -326,6 +430,32 @@ class _ProjectGridScreenState extends State<ProjectGridScreen> {
                                 overflow: TextOverflow.ellipsis,
                               ),
                             ),
+                            // Innerhalb der Projektkarte (z.B. unter dem Projekttitel):
+                            if (project['group'] != null ||
+                                project['group'] != null) ...[
+                              const SizedBox(height: 6),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.blue.shade50,
+                                  borderRadius: BorderRadius.circular(4),
+                                  border: Border.all(
+                                    color: Colors.blue.shade200,
+                                  ),
+                                ),
+                                child: Text(
+                                  'Gruppe: ${project['group']['name']}',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: Colors.blue.shade800,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ],
                         ),
                       ),

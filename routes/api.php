@@ -13,6 +13,7 @@ use App\Http\Controllers\ProfileController;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\Response;
 use App\Http\Controllers\Api\AttachmentController; //
+use App\Http\Controllers\Api\GroupController;
 
 // ==========================================
 // ÖFFENTLICHE ROUTEN (Kein Login nötig)
@@ -81,13 +82,20 @@ Route::middleware('auth:sanctum')->group(function () {
 
     //Attachments
     // Task-Anhänge
-Route::post('/tasks/{task}/attachments', [AttachmentController::class, 'storeForTask']);
+    Route::post('/tasks/{task}/attachments', [AttachmentController::class, 'storeForTask']);
 
-// Projekt-Anhänge (NEU)
-Route::post('/projects/{project}/attachments', [AttachmentController::class, 'storeForProject']);
+    // Projekt-Anhänge (NEU)
+    Route::post('/projects/{project}/attachments', [AttachmentController::class, 'storeForProject']);
 
-// Universelles Löschen über die Attachment-ID
-Route::delete('/attachments/{attachment}', [AttachmentController::class, 'destroy']);
-Route::get('/projects/{projectId}/files', [ProjectController::class, 'projectFiles']);
-Route::delete('/attachments/{id}', [ProjectController::class, 'destroyAttachment']);
+    // Universelles Löschen über die Attachment-ID
+    Route::delete('/attachments/{attachment}', [AttachmentController::class, 'destroy']);
+    Route::get('/projects/{projectId}/files', [ProjectController::class, 'projectFiles']);
+    Route::delete('/attachments/{id}', [ProjectController::class, 'destroyAttachment']);
+
+    // Groups 
+
+    Route::get('/groups', [GroupController::class, 'index']);
+    Route::post('/groups', [GroupController::class, 'store']);
+    Route::get('/groups/{id}', [GroupController::class, 'show']);
+    Route::post('/groups/{id}/members', [GroupController::class, 'addMember']);
 });
