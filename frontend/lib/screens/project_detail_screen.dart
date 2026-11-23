@@ -12,6 +12,7 @@ import 'profile_screen.dart';
 import 'project_grid_screen.dart';
 import 'user_dashboard_screen.dart';
 import 'project_info_screen.dart';
+import 'group_management_screen.dart';
 
 class ProjectDetailScreen extends StatefulWidget {
   final int projectId;
@@ -883,70 +884,6 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
         .showSnackBar(SnackBar(content: Text(message)));
   }
 
-  void _showInviteDialog() {
-    final emailController = TextEditingController();
-
-    showDialog<void>(
-      context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          title: const Text('Teammitglied einladen'),
-          content: TextField(
-            controller: emailController,
-            decoration: const InputDecoration(
-              labelText: 'E-Mail-Adresse',
-              hintText: 'z.B. max@test.de',
-            ),
-            keyboardType: TextInputType.emailAddress,
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('Abbrechen'),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                final email = emailController.text.trim();
-                if (email.isEmpty) return;
-
-                Navigator.pop(dialogContext);
-                await _inviteMember(email);
-              },
-              child: const Text('Einladen'),
-            ),
-          ],
-        );
-      },
-    ).then((_) => emailController.dispose());
-  }
-
-  Future<void> _inviteMember(String email) async {
-    final url = Uri.parse('$apiBaseUrl/projects/${widget.projectId}/members');
-    final headers = await AuthService.getHeaders();
-    if (!mounted) return; // 🛡️ Schutz nach await
-
-    try {
-      final response = await http.post(
-        url,
-        headers: headers,
-        body: jsonEncode({'email': email}),
-      );
-      if (!mounted) return; // 🛡️ Schutz nach await
-
-      if (response.statusCode == 200) {
-        _showMessage('Mitglied erfolgreich hinzugefügt!');
-      } else {
-        final errorData = jsonDecode(response.body);
-        final errorMsg =
-            errorData['message'] ?? errorData['error'] ?? 'Unbekannter Fehler';
-        _showMessage('Fehler: $errorMsg');
-      }
-    } catch (e) {
-      if (!mounted) return;
-      _showMessage('Verbindungsfehler: $e');
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -955,7 +892,7 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
         elevation: 2,
         iconTheme: const IconThemeData(color: Colors.black87),
 
-        // 🧭 1. NAVIGATION (Links: Dropdown für Seitenwechsel inkl. ProjectInfoScreen)
+        // 🧭 1. NAVIGATION (Links: Globales Menü)
         leading: PopupMenuButton<String>(
           tooltip: 'Navigation',
           icon: const Icon(Icons.menu, color: Colors.black87),
@@ -976,6 +913,16 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
                 context,
                 MaterialPageRoute(builder: (_) => const ProfileScreen()),
               );
+            } else if (value == 'group_management') {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => GroupManagementScreen(
+                    apiBaseUrl:
+                        apiBaseUrl, // 👈 Nur noch die apiBaseUrl übergeben
+                  ),
+                ),
+              );
             } else if (value == 'info') {
               final projectData = {
                 'id': widget.projectId,
@@ -993,6 +940,15 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
             }
           },
           itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+            // 👥 NEU IM MENÜ: Von überall erreichbar
+            const PopupMenuItem<String>(
+              value: 'group_management',
+              child: ListTile(
+                leading: Icon(Icons.group_outlined, color: Colors.blue),
+                title: Text('Gruppe & Mitglieder verwalten'),
+              ),
+            ),
+            const PopupMenuDivider(),
             const PopupMenuItem<String>(
               value: 'info',
               child: ListTile(
@@ -1036,27 +992,8 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
           ),
         ),
 
-        // ⚙️ 2. FUNKTIONALE BUTTONS (Rechts: Aktionen fürs Kanban-Board)
+        // ⚙️ 2. FUNKTIONALE BUTTONS (Rechts: Nur noch Reorder, Chat, Refresh - Kein Invite-Button mehr hier!)
         actions: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 8.0),
-            child: Container(
-              decoration: BoxDecoration(
-                color: Colors.grey.shade100,
-                shape: BoxShape.circle,
-                border: Border.all(color: Colors.grey.shade300, width: 1),
-              ),
-              child: IconButton(
-                tooltip: 'Mitglied einladen',
-                icon: const Icon(
-                  Icons.person_add,
-                  size: 20,
-                  color: Colors.blue,
-                ),
-                onPressed: () => _showInviteDialog(),
-              ),
-            ),
-          ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 8.0),
             child: Container(

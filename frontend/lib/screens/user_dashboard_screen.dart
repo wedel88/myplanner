@@ -1,13 +1,12 @@
-import 'dart:convert';
-
 import 'package:material_ui/material_ui.dart';
 import 'package:http/http.dart' as http;
 
+import 'dart:convert';
+
+import 'package:fl_chart/fl_chart.dart';
+
 import '../main.dart';
 import '../services/auth_service.dart';
-import 'project_detail_screen.dart';
-import 'profile_screen.dart';
-import 'project_grid_screen.dart';
 
 class UserDashboardScreen extends StatefulWidget {
   const UserDashboardScreen({super.key});
@@ -18,424 +17,637 @@ class UserDashboardScreen extends StatefulWidget {
 
 class _UserDashboardScreenState extends State<UserDashboardScreen> {
   bool _isLoading = true;
+  Map<String, dynamic> _stats = {};
   List<dynamic> _tasks = [];
-  Map<String, dynamic> _stats = {'total': 0, 'completed': 0, 'pending': 0};
-  int? _currentUserId; // 👈 ID des eigenen Users für den Filter
+  List<dynamic> _projects = [];
+  List<dynamic> _groups = [];
+  int? _currentUserId;
 
-  // Filter-Zustände
-  String _selectedFilter = 'all'; // 'all', 'pending', 'overdue'
-  bool _hideCompleted = true; // Erledigte ausblenden
-  bool _onlyMyTasks = false; // 👈 Neuer Schalter: Nur meine Aufgaben
+  // Filter-Variablen
+  int? _selectedProjectId;
+  int? _selectedGroupId;
+  bool _showOnlyMyTasks = false;
 
   @override
   void initState() {
     super.initState();
-    _loadUserAndDashboardData();
+    _initDashboard();
   }
 
-  Future<void> _loadUserAndDashboardData() async {
-    final headers = await AuthService.getHeaders();
+  Future<void> _initDashboard() async {
+    _currentUserId = await AuthService.getCurrentUserId();
+    await _fetchDashboardData();
+  }
 
+  Future<void> _fetchDashboardData() async {
+    setState(() => _isLoading = true);
     try {
-      // 1. Eigenen User abrufen, um die ID für den "Nur meine Aufgaben"-Filter zu haben
-      final userResponse = await http.get(
-        Uri.parse('$apiBaseUrl/me'),
-        headers: headers,
-      );
-
-      if (userResponse.statusCode == 200) {
-        final userData = json.decode(userResponse.body);
-        setState(() {
-          // Je nachdem, wie dein /me Endpoint das Objekt zurückgibt (z.B. direkt als User oder unter 'user')
-          _currentUserId = userData['id'] ?? userData['user']?['id'];
-        });
-        debugPrint('Eingeloggter User ID ist: $_currentUserId');
-      }
-
-      // 2. Dashboard-Daten laden
+      final headers = await AuthService.getHeaders();
       final response = await http.get(
         Uri.parse('$apiBaseUrl/dashboard/tasks'),
         headers: headers,
       );
 
-      if (!mounted) return;
-
       if (response.statusCode == 200) {
-        final data = json.decode(response.body);
+        final data = jsonDecode(response.body);
         setState(() {
+          _stats = data['stats'] ?? {};
           _tasks = data['tasks'] ?? [];
-          _stats = data['stats'] ?? {'total': 0, 'completed': 0, 'pending': 0};
+          _projects = data['projects'] ?? [];
+          _groups = data['groups'] ?? [];
           _isLoading = false;
         });
       } else {
         setState(() => _isLoading = false);
       }
     } catch (e) {
-      if (!mounted) return;
+      debugPrint('Fehler beim Laden des Dashboards: $e');
       setState(() => _isLoading = false);
     }
   }
 
-  Color _getStatusColor(String? status) {
-    switch (status) {
-      case 'completed':
-        return Colors.green;
-      case 'in_progress':
-        return Colors.blue;
-      case 'open':
-      default:
-        return Colors.orange;
-    }
-  }
-
-  String _getStatusText(String? status) {
-    switch (status) {
-      case 'completed':
-        return 'Erledigt';
-      case 'in_progress':
-        return 'In Bearbeitung';
-      case 'open':
-      default:
-        return 'Offen';
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    // Aufgaben filtern basierend auf allen aktivierten Kriterien
-    final filteredTasks = _tasks.where((task) {
-      final status = task['status'] ?? 'open';
+  // Filter-Logik
+  List<dynamic> get _filteredTasks {
+    return _tasks.where((task) {
+      final project = task['container']?['project'];
+      final projectId = project?['id'];
+      final groupId = project?['group']?['id'];
       final assignedUserId = task['assigned_user_id'];
 
-      // 1. "Nur meine Aufgaben"-Filter (Strenge Prüfung!)
-      if (_onlyMyTasks) {
-        // Wenn dem Task niemand zugewiesen ist (null) ODER die ID nicht zu meinem User passt -> Verstecken!
-        if (assignedUserId == null ||
-            _currentUserId == null ||
-            assignedUserId.toString() != _currentUserId.toString()) {
-          return false;
-        }
-      }
+      bool matchesProject =
+          _selectedProjectId == null || projectId == _selectedProjectId;
+      bool matchesGroup =
+          _selectedGroupId == null || groupId == _selectedGroupId;
+      bool matchesMe = !_showOnlyMyTasks || assignedUserId == _currentUserId;
 
-      // 2. Erledigte ausblenden
-      if (_hideCompleted && status == 'completed') {
-        return false;
-      }
-
-      // 3. Status-Filter
-      if (_selectedFilter == 'pending') {
-        return status != 'completed';
-      } else if (_selectedFilter == 'overdue') {
-        if (task['due_at'] == null) return false;
-        final dueDate = DateTime.parse(task['due_at']);
-        return dueDate.isBefore(DateTime.now()) && status != 'completed';
-      }
-
-      return true; // 'all'
+      return matchesProject && matchesGroup && matchesMe;
     }).toList();
+  }
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Mein Dashboard'),
-        elevation: 2,
+  // Statistiken basierend auf den gefilterten Tasks
+  Map<String, int> get _filteredStats {
+    final filtered = _filteredTasks;
+    final now = DateTime.now();
+    return {
+      'total': filtered.length,
+      'completed': filtered.where((t) => t['status'] == 'completed').length,
+      'pending': filtered.where((t) => t['status'] != 'completed').length,
+      'overdue': filtered.where((t) {
+        if (t['status'] == 'completed' || t['due_at'] == null) return false;
+        return DateTime.parse(t['due_at']).isBefore(now);
+      }).length,
+    };
+  }
+
+  // --- DESIGN BAUSTEINE ---
+  Widget _buildStatCard(
+    String title,
+    int value,
+    IconData icon,
+    Color color, {
+    VoidCallback? onTap,
+  }) {
+    return Expanded(
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Colors.grey.shade200),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      color: Colors.grey.shade600,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                    ),
+                  ),
+                  Icon(icon, color: color, size: 20),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Text(
+                '$value',
+                style: TextStyle(
+                  fontSize: 28,
+                  fontWeight: FontWeight.bold,
+                  color: color,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDropdown({
+    required String label,
+    required int? value,
+    required List<dynamic> items,
+    required Function(int?) onChanged,
+  }) {
+    return Expanded(
+      child: DropdownButtonFormField<int?>(
+        value: value,
+        decoration: InputDecoration(
+          labelText: label,
+          filled: true,
+          fillColor: Colors.white,
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 12,
+            vertical: 14,
+          ),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(color: Colors.grey.shade300),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(color: Colors.grey.shade300),
+          ),
+        ),
+        items: [
+          const DropdownMenuItem<int?>(value: null, child: Text('Alle')),
+          ...items.map(
+            (item) => DropdownMenuItem<int?>(
+              value: item['id'],
+              child: Text(item['name'] ?? '', overflow: TextOverflow.ellipsis),
+            ),
+          ),
+        ],
+        onChanged: onChanged,
+      ),
+    );
+  }
+
+  // ==================== POPUP 1: GESAMT (TORTEN-DIAGRAMM) ====================
+  void _showTotalPieChart() {
+    final stats = _filteredStats;
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text(
+          'Aufgaben-Verteilung',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        content: SizedBox(
+          width: 400,
+          height: 300,
+          child: PieChart(
+            PieChartData(
+              sectionsSpace: 2,
+              centerSpaceRadius: 60,
+              sections: [
+                PieChartSectionData(
+                  value: stats['completed']!.toDouble(),
+                  color: Colors.green,
+                  title: '${stats['completed']}',
+                  radius: 50,
+                  titleStyle: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+                PieChartSectionData(
+                  value: stats['pending']!.toDouble(),
+                  color: Colors.orange,
+                  title: '${stats['pending']}',
+                  radius: 50,
+                  titleStyle: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+                PieChartSectionData(
+                  value: stats['overdue']!.toDouble(),
+                  color: Colors.red,
+                  title: '${stats['overdue']}',
+                  radius: 50,
+                  titleStyle: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.grid_view_rounded),
-            tooltip: 'Projekte (Home)',
-            onPressed: () {
-              Navigator.pushAndRemoveUntil(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => const ProjectGridScreen(),
-                ), // Hier den echten Klassennamen einsetzen!
-                (route) => false,
-              );
-            },
-          ),
-          // 3. Zum Profil wechseln
-          IconButton(
-            icon: const Icon(Icons.person_outline),
-            tooltip: 'Mein Profil',
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const ProfileScreen()),
-              );
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            tooltip: 'Aktualisieren',
-            onPressed: () {
-              setState(() => _isLoading = true);
-              _loadUserAndDashboardData();
-            },
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Schließen'),
           ),
         ],
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : Padding(
-              padding: const EdgeInsets.all(16.0),
+    );
+  }
+
+  // ==================== POPUP 2: ERLEDIGT (BALKEN-DIAGRAMM) ====================
+  void _showCompletedBarChart() {
+    String timeRange = '7_days';
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setStateDialog) {
+          // 1. Daten für das Chart berechnen (basierend auf _filteredTasks)
+          final chartData = _calculateChartData(timeRange);
+
+          return AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            title: const Text(
+              'Erledigte Aufgaben',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            content: SizedBox(
+              width: 500,
+              height: 350,
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Statistik-Karten oben
-                  Row(
-                    children: [
-                      _buildStatCard(
-                        'Gesamt',
-                        '${_stats['total']}',
-                        Colors.blue,
-                      ),
-                      const SizedBox(width: 12),
-                      _buildStatCard(
-                        'Offen',
-                        '${_stats['pending']}',
-                        Colors.orange,
-                      ),
-                      const SizedBox(width: 12),
-                      _buildStatCard(
-                        'Erledigt',
-                        '${_stats['completed']}',
-                        Colors.green,
-                      ),
+                  // Zeitraum-Auswahl
+                  SegmentedButton<String>(
+                    segments: const [
+                      ButtonSegment(value: 'yesterday', label: Text('Gestern')),
+                      ButtonSegment(value: 'today', label: Text('Heute')),
+                      ButtonSegment(value: '7_days', label: Text('7 Tage')),
+                      ButtonSegment(value: 'month', label: Text('Monat')),
                     ],
+                    selected: {timeRange},
+                    onSelectionChanged: (Set<String> newSelection) {
+                      setStateDialog(() => timeRange = newSelection.first);
+                    },
                   ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      _buildStatCard(
-                        'Heute erledigt',
-                        '${_stats['completed_today'] ?? 0}',
-                        Colors.teal,
-                      ),
-                      const SizedBox(width: 12),
-                      _buildStatCard(
-                        'Letzte 7 Tage',
-                        '${_stats['completed_week'] ?? 0}',
-                        Colors.indigo,
-                      ),
-                      const SizedBox(width: 12),
-                      _buildStatCard(
-                        'Diesen Monat',
-                        '${_stats['completed_month'] ?? 0}',
-                        Colors.purple,
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 24),
 
-                  // Filter-Leiste & Schalter
-                  Wrap(
-                    spacing: 8.0,
-                    runSpacing: 8.0,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    children: [
-                      // 👉 NEU: Zuweisungs-Filter (Alle vs. Nur meine)
-                      ChoiceChip(
-                        label: const Text('Alle Aufgaben'),
-                        selected: !_onlyMyTasks,
-                        onSelected: (selected) =>
-                            setState(() => _onlyMyTasks = false),
-                      ),
-                      ChoiceChip(
-                        label: const Text('👤 Nur meine Aufgaben'),
-                        selected: _onlyMyTasks,
-                        onSelected: (selected) =>
-                            setState(() => _onlyMyTasks = true),
-                      ),
-                      const SizedBox(width: 8),
-
-                      // Status-Filter
-                      ChoiceChip(
-                        label: const Text('Offen & Aktiv'),
-                        selected: _selectedFilter == 'pending',
-                        onSelected: (selected) =>
-                            setState(() => _selectedFilter = 'pending'),
-                      ),
-                      ChoiceChip(
-                        label: const Text('Überfällig ⚠️'),
-                        selected: _selectedFilter == 'overdue',
-                        onSelected: (selected) =>
-                            setState(() => _selectedFilter = 'overdue'),
-                      ),
-                      const SizedBox(width: 8),
-
-                      // Erledigte ausblenden
-                      FilterChip(
-                        label: const Text('Erledigte ausblenden'),
-                        selected: _hideCompleted,
-                        onSelected: (val) =>
-                            setState(() => _hideCompleted = val),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-
-                  Text(
-                    _onlyMyTasks
-                        ? 'Deine persönlichen Aufgaben'
-                        : 'Alle Projekt-Aufgaben im Team',
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-
-                  // Aufgaben-Liste
+                  // Das Chart
                   Expanded(
-                    child: filteredTasks.isEmpty
-                        ? const Center(
-                            child: Text(
-                              'Keine Aufgaben in dieser Ansicht gefunden.',
-                              style: TextStyle(color: Colors.grey),
+                    child: BarChart(
+                      BarChartData(
+                        alignment: BarChartAlignment.spaceAround,
+                        barGroups: chartData.asMap().entries.map((entry) {
+                          int index = entry.key;
+                          var item = entry.value;
+                          double value = (item['value'] ?? 0).toDouble();
+                          return BarChartGroupData(
+                            x: index,
+                            barRods: [
+                              BarChartRodData(
+                                toY: value,
+                                color: Colors.green,
+                                width: 16,
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                            ],
+                          );
+                        }).toList(),
+                        titlesData: FlTitlesData(
+                          leftTitles: AxisTitles(
+                            sideTitles: SideTitles(
+                              showTitles: true,
+                              reservedSize: 30,
+                              getTitlesWidget: (value, meta) => Text(
+                                value.toInt().toString(),
+                                style: const TextStyle(
+                                  fontSize: 10,
+                                  color: Colors.grey,
+                                ),
+                              ),
                             ),
-                          )
-                        : ListView.builder(
-                            itemCount: filteredTasks.length,
-                            itemBuilder: (context, index) {
-                              final task = filteredTasks[index];
-                              final projectName =
-                                  task['container']?['project']?['name'] ??
-                                  'Unbekanntes Projekt';
-                              final projectId =
-                                  task['container']?['project']?['id'];
-                              final status = task['status'] ?? 'open';
-                              final dueAt = task['due_at'];
-
-                              bool isOverdue = false;
-                              if (dueAt != null && status != 'completed') {
-                                final dueDate = DateTime.parse(dueAt);
-                                isOverdue = dueDate.isBefore(DateTime.now());
-                              }
-
-                              return Card(
-                                elevation: 2,
-                                margin: const EdgeInsets.only(bottom: 10),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: ListTile(
-                                  onTap: () {
-                                    if (projectId != null) {
-                                      Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (_) => ProjectDetailScreen(
-                                            projectId: projectId,
-                                            projectName: projectName,
-                                          ),
-                                        ),
-                                      );
-                                    }
-                                  },
-                                  title: Text(
-                                    task['title'] ?? '',
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                  subtitle: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        '📁 Projekt: $projectName',
-                                        style: TextStyle(
-                                          color: Colors.grey.shade700,
-                                        ),
-                                      ),
-                                      if (dueAt != null) ...[
-                                        const SizedBox(height: 2),
-                                        Row(
-                                          children: [
-                                            Icon(
-                                              Icons.calendar_today,
-                                              size: 14,
-                                              color: isOverdue
-                                                  ? Colors.red
-                                                  : Colors.grey,
-                                            ),
-                                            const SizedBox(width: 4),
-                                            Text(
-                                              'Fällig: ${dueAt.toString().substring(0, 10)}',
-                                              style: TextStyle(
-                                                color: isOverdue
-                                                    ? Colors.red
-                                                    : Colors.grey.shade600,
-                                                fontWeight: isOverdue
-                                                    ? FontWeight.bold
-                                                    : FontWeight.normal,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ],
-                                    ],
-                                  ),
-                                  trailing: Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 10,
-                                      vertical: 6,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: _getStatusColor(status)
-                                          .withOpacity(0.1),
-                                      borderRadius: BorderRadius.circular(20),
-                                      border: Border.all(
-                                        color: _getStatusColor(status),
-                                      ),
-                                    ),
-                                    child: Text(
-                                      _getStatusText(status),
-                                      style: TextStyle(
-                                        color: _getStatusColor(status),
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 12,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              );
-                            },
                           ),
+                          topTitles: const AxisTitles(
+                            sideTitles: SideTitles(showTitles: false),
+                          ),
+                          rightTitles: const AxisTitles(
+                            sideTitles: SideTitles(showTitles: false),
+                          ),
+                          bottomTitles: AxisTitles(
+                            sideTitles: SideTitles(
+                              showTitles: true,
+                              reservedSize: 30,
+                              getTitlesWidget: (value, meta) {
+                                int idx = value.toInt();
+                                if (idx >= 0 && idx < chartData.length) {
+                                  return Text(
+                                    chartData[idx]['label'],
+                                    style: const TextStyle(fontSize: 10),
+                                  );
+                                }
+                                return const SizedBox.shrink();
+                              },
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
                   ),
                 ],
               ),
             ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Schließen'),
+              ),
+            ],
+          );
+        },
+      ),
     );
   }
 
-  Widget _buildStatCard(String title, String count, Color color) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: color.withOpacity(0.3)),
+  // Hilfsfunktion zur Berechnung der Chart-Daten (alles lokal im Frontend!)
+  List<Map<String, dynamic>> _calculateChartData(String range) {
+    final now = DateTime.now();
+    final completedTasks = _filteredTasks
+        .where((t) => t['status'] == 'completed')
+        .toList();
+    List<Map<String, dynamic>> result = [];
+
+    if (range == 'yesterday') {
+      final yesterday = now.subtract(const Duration(days: 1));
+      int count = completedTasks.where((t) {
+        if (t['updated_at'] == null) return false;
+        final date = DateTime.parse(t['updated_at']);
+        return date.year == yesterday.year &&
+            date.month == yesterday.month &&
+            date.day == yesterday.day;
+      }).length;
+      result.add({'label': 'Gestern', 'value': count});
+    } else if (range == 'today') {
+      // Stunden 0 bis 23
+      for (int i = 0; i < 24; i++) {
+        int count = completedTasks.where((t) {
+          if (t['updated_at'] == null) return false;
+          final date = DateTime.parse(t['updated_at']);
+          return date.year == now.year &&
+              date.month == now.month &&
+              date.day == now.day &&
+              date.hour == i;
+        }).length;
+        // Zeige nur jede 4. Stunde auf der Achse
+        result.add({'label': i % 4 == 0 ? '$i:00' : '', 'value': count});
+      }
+    } else if (range == '7_days') {
+      // Letzte 7 Tage
+      for (int i = 6; i >= 0; i--) {
+        final date = now.subtract(Duration(days: i));
+        int count = completedTasks.where((t) {
+          if (t['updated_at'] == null) return false;
+          final d = DateTime.parse(t['updated_at']);
+          return d.year == date.year &&
+              d.month == date.month &&
+              d.day == date.day;
+        }).length;
+        result.add({'label': '${date.day}.${date.month}.', 'value': count});
+      }
+    } else if (range == 'month') {
+      // Letzte 30 Tage (zusammengefasst in 5-Tage-Blöcke für bessere Lesbarkeit)
+      for (int i = 4; i >= 0; i--) {
+        final start = now.subtract(Duration(days: (i * 6) + 5));
+        final end = now.subtract(Duration(days: i * 6));
+        int count = completedTasks.where((t) {
+          if (t['updated_at'] == null) return false;
+          final d = DateTime.parse(t['updated_at']);
+          return d.isAfter(start) &&
+              d.isBefore(end.add(const Duration(days: 1)));
+        }).length;
+        result.add({'label': '${start.day}.${start.month}.', 'value': count});
+      }
+    }
+    return result;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bool isDesktop = MediaQuery.of(context).size.width > 800;
+
+    return Scaffold(
+      backgroundColor: Colors.grey.shade50,
+      appBar: AppBar(
+        title: const Text(
+          'Dashboard',
+          style: TextStyle(fontWeight: FontWeight.bold),
         ),
-        child: Column(
-          children: [
-            Text(
-              title,
-              style: TextStyle(color: color, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              count,
-              style: TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-                color: color,
+        backgroundColor: Colors.white,
+        elevation: 0,
+        iconTheme: const IconThemeData(color: Colors.black87),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh, color: Colors.black87),
+            onPressed: _fetchDashboardData,
+            tooltip: 'Aktualisieren',
+          ),
+          const SizedBox(width: 8),
+        ],
+      ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : Center(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxWidth: isDesktop ? 1000 : double.infinity,
+                ),
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(24.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // ==================== 1. FILTER ====================
+                      Row(
+                        children: [
+                          _buildDropdown(
+                            label: 'Projekt',
+                            value: _selectedProjectId,
+                            items: _projects,
+                            onChanged: (val) =>
+                                setState(() => _selectedProjectId = val),
+                          ),
+                          const SizedBox(width: 12),
+                          _buildDropdown(
+                            label: 'Gruppe',
+                            value: _selectedGroupId,
+                            items: _groups,
+                            onChanged: (val) =>
+                                setState(() => _selectedGroupId = val),
+                          ),
+                          const SizedBox(width: 12),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: Colors.grey.shade300),
+                            ),
+                            child: Row(
+                              children: [
+                                const Text(
+                                  'Nur meine Aufgaben',
+                                  style: TextStyle(fontWeight: FontWeight.w500),
+                                ),
+                                Switch(
+                                  value: _showOnlyMyTasks,
+                                  activeColor: Colors.blue,
+                                  onChanged: (val) =>
+                                      setState(() => _showOnlyMyTasks = val),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 24),
+
+                      // ==================== 2. STATISTIK KARTEN ====================
+                      Row(
+                        children: [
+                          // Klick öffnet das Torten-Diagramm
+                          _buildStatCard(
+                            'Gesamt',
+                            _filteredStats['total']!,
+                            Icons.list_alt,
+                            Colors.blue,
+                            onTap: _showTotalPieChart,
+                          ),
+                          const SizedBox(width: 12),
+                          // Nicht klickbar
+                          _buildStatCard(
+                            'Offen',
+                            _filteredStats['pending']!,
+                            Icons.pending_actions,
+                            Colors.orange,
+                          ),
+                          const SizedBox(width: 12),
+                          // Klick öffnet das Balken-Diagramm
+                          _buildStatCard(
+                            'Erledigt',
+                            _filteredStats['completed']!,
+                            Icons.check_circle,
+                            Colors.green,
+                            onTap: _showCompletedBarChart,
+                          ),
+                          const SizedBox(width: 12),
+                          // Nicht klickbar
+                          _buildStatCard(
+                            'Überfällig',
+                            _filteredStats['overdue']!,
+                            Icons.warning_amber_rounded,
+                            Colors.red,
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 32),
+
+                      // ==================== 3. TASK LISTE ====================
+                      const Text(
+                        'Anstehende Aufgaben',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 18,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      _filteredTasks.isEmpty
+                          ? const Padding(
+                              padding: EdgeInsets.all(32.0),
+                              child: Center(
+                                child: Text(
+                                  'Keine Aufgaben für diesen Filter gefunden.',
+                                  style: TextStyle(color: Colors.grey),
+                                ),
+                              ),
+                            )
+                          : ListView.builder(
+                              shrinkWrap: true,
+                              physics: const NeverScrollableScrollPhysics(),
+                              itemCount: _filteredTasks.length,
+                              itemBuilder: (context, index) {
+                                final task = _filteredTasks[index];
+                                final isCompleted =
+                                    task['status'] == 'completed';
+                                final isOverdue =
+                                    !isCompleted &&
+                                    task['due_at'] != null &&
+                                    DateTime.parse(task['due_at'])
+                                        .isBefore(DateTime.now());
+
+                                return Card(
+                                  elevation: 0,
+                                  margin: const EdgeInsets.only(bottom: 8),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                    side: BorderSide(
+                                      color: Colors.grey.shade200,
+                                    ),
+                                  ),
+                                  child: ListTile(
+                                    leading: Icon(
+                                      isCompleted
+                                          ? Icons.check_circle
+                                          : Icons.radio_button_unchecked,
+                                      color: isCompleted
+                                          ? Colors.green
+                                          : (isOverdue
+                                                ? Colors.red
+                                                : Colors.grey),
+                                    ),
+                                    title: Text(
+                                      task['title'] ?? 'Aufgabe',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                        decoration: isCompleted
+                                            ? TextDecoration.lineThrough
+                                            : null,
+                                        color: isCompleted
+                                            ? Colors.grey
+                                            : Colors.black87,
+                                      ),
+                                    ),
+                                    subtitle: Text(
+                                      'Projekt: ${task['container']?['project']?['name'] ?? 'Unbekannt'}',
+                                      style: const TextStyle(fontSize: 12),
+                                    ),
+                                    trailing: isOverdue
+                                        ? const Icon(
+                                            Icons.warning,
+                                            color: Colors.red,
+                                          )
+                                        : Text(
+                                            task['due_at'] != null
+                                                ? task['due_at']
+                                                      .toString()
+                                                      .substring(0, 10)
+                                                : '',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: Colors.grey.shade600,
+                                            ),
+                                          ),
+                                  ),
+                                );
+                              },
+                            ),
+                    ],
+                  ),
+                ),
               ),
             ),
-          ],
-        ),
-      ),
     );
   }
 }

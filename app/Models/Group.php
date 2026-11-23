@@ -21,10 +21,12 @@ class Group extends Model
         return $this->belongsTo(User::class, 'created_by_user_id');
     }
 
-    // Mitglieder der Gruppe (Many-to-Many)
+    // Mitglieder der Gruppe (Many-to-Many mit Rolle in der Pivot-Tabelle)
     public function users()
     {
-        return $this->belongsToMany(User::class);
+        return $this->belongsToMany(User::class, 'group_user')
+                    ->withPivot('role')
+                    ->withTimestamps();
     }
 
     // Projekte in dieser Gruppe

@@ -64,18 +64,56 @@ class ProjectController extends Controller
     // Ein bestehendes Projekt aktualisieren (Bearbeiten)
     public function update(Request $request, Project $project)
     {
+        $user = auth()->user();
+
+        // 1. Grundsätzliche Zugriffsprüfung: Ist der User Besitzer oder Mitglied?
+        $hasAccess = $project->user_id === $user->id ||
+            $project->users()->where('users.id', $user->id)->exists();
+
+        if (!$hasAccess) {
+            return response()->json(['message' => 'Kein Zugriff auf dieses Projekt.'], 403);
+        }
+
+        // 2. Wenn die group_id geändert werden soll, prüfen wir die Rollen in der ALTEN und NEUEN Gruppe
+        if ($request->has('group_id') && $request->input('group_id') != $project->group_id) {
+
+            // Prüfen: Darf der User in der NEUEN Gruppe Projekte hinzufügen?
+            if ($request->input('group_id') !== null) {
+                $newGroup = \App\Models\Group::find($request->input('group_id'));
+                if ($newGroup) {
+                    $pivot = $newGroup->users()->where('user_id', $user->id)->first();
+                    $roleInNewGroup = $pivot ? $pivot->pivot->role : null;
+                    if (!in_array($roleInNewGroup, ['admin', 'product_owner'])) {
+                        return response()->json(['message' => 'Du hast keine Berechtigung, Projekte in diese Gruppe aufzunehmen.'], 403);
+                    }
+                }
+            }
+
+            // Prüfen: Darf der User das Projekt aus der ALTEN Gruppe entfernen?
+            if ($project->group_id !== null) {
+                $oldGroup = $project->group;
+                if ($oldGroup) {
+                    $pivot = $oldGroup->users()->where('user_id', $user->id)->first();
+                    $roleInOldGroup = $pivot ? $pivot->pivot->role : null;
+                    if (!in_array($roleInOldGroup, ['admin', 'product_owner'])) {
+                        return response()->json(['message' => 'Du hast keine Berechtigung, dieses Projekt aus der aktuellen Gruppe zu entfernen.'], 403);
+                    }
+                }
+            }
+        }
+
         $validated = $request->validate([
             'name' => 'sometimes|required|string|max:255',
             'description' => 'nullable|string',
             'sort_order' => 'sometimes|integer',
-            'group_id' => 'nullable|exists:groups,id', // 👈 HIER HINZUFÜGEN
+            'group_id' => 'nullable|exists:groups,id',
         ]);
 
         $project->update($validated);
 
         return response()->json([
             'message' => 'Projekt erfolgreich aktualisiert!',
-            'data' => $project->load('group') // 👈 Lädt die Gruppe direkt mit
+            'data' => $project->load('group')
         ], 200);
     }
 

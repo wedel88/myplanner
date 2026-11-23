@@ -73,8 +73,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/comments', [CommentController::class, 'store']);
     Route::delete('/comments/{comment}', [CommentController::class, 'destroy']);
     Route::put('/comments/{comment}', [CommentController::class, 'update']);
-
+    //Dashboard
     Route::get('/dashboard/tasks', [DashboardController::class, 'index']);
+    Route::get('/dashboard/chart-data', [DashboardController::class, 'chartData']);
     //Profile
     Route::get('/me', [ProfileController::class, 'show']);
     Route::post('/profile/avatar', [ProfileController::class, 'updateAvatar']);
@@ -92,10 +93,14 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/projects/{projectId}/files', [ProjectController::class, 'projectFiles']);
     Route::delete('/attachments/{id}', [ProjectController::class, 'destroyAttachment']);
 
-    // Groups 
+    // Groups – sauber
+    Route::get('/groups/{group}/members', [GroupController::class, 'getMembers']);
+    Route::post('/groups/{group}/members', [GroupController::class, 'addMember']);
+    Route::put('/groups/{group}/members/{user}', [GroupController::class, 'updateMemberRole']);
+    Route::delete('/groups/{group}/members/{user}', [GroupController::class, 'removeMember']);
+    Route::get('/groups/available-projects', [GroupController::class, 'availableProjects']);
+    Route::post('/groups/{group}/projects/assign', [GroupController::class, 'assignProject']);
+    Route::delete('/groups/{group}/projects/{project}', [GroupController::class, 'removeProject']);
+    Route::apiResource('groups', GroupController::class);
 
-    Route::get('/groups', [GroupController::class, 'index']);
-    Route::post('/groups', [GroupController::class, 'store']);
-    Route::get('/groups/{id}', [GroupController::class, 'show']);
-    Route::post('/groups/{id}/members', [GroupController::class, 'addMember']);
 });

@@ -30,6 +30,7 @@ class _ProjectInfoScreenState extends State<ProjectInfoScreen>
   late Map<String, dynamic> _currentProject;
   List<dynamic> _projectAttachments = [];
   List<dynamic> _userGroups = [];
+  List<dynamic> _manageableGroups = []; // Gruppen, in denen User Admin/PO ist
   String? _selectedGroupId;
 
   bool _isLoading = false;
@@ -114,8 +115,27 @@ class _ProjectInfoScreenState extends State<ProjectInfoScreen>
         headers: headers,
       );
       if (response.statusCode == 200 && mounted) {
+        final allGroups = jsonDecode(response.body) as List;
+
+        // Filtern: In welchen Gruppen ist der User Admin oder PO?
+        List<dynamic> manageable = [];
+        final me = await AuthService.getCurrentUserId();
+
+        for (var group in allGroups) {
+          for (var user in (group['users'] ?? [])) {
+            if (user['id'] == me) {
+              final role = user['pivot']?['role'];
+              if (role == 'admin' || role == 'product_owner') {
+                manageable.add(group);
+              }
+              break;
+            }
+          }
+        }
+
         setState(() {
-          _userGroups = jsonDecode(response.body);
+          _userGroups = allGroups;
+          _manageableGroups = manageable;
         });
       }
     } catch (e) {
@@ -366,48 +386,35 @@ class _ProjectInfoScreenState extends State<ProjectInfoScreen>
                           const SizedBox(width: 16),
 
                           // Rechte Seite: Gruppe (Dropdown im Edit-Mode, Badge oder Hinweis im View-Mode)
-                          if (_isEditing)
+                          if (_isEditing && _manageableGroups.isNotEmpty)
                             SizedBox(
                               width: 220,
                               child: DropdownButtonFormField<String>(
                                 value: _selectedGroupId,
                                 isExpanded: true,
-                                decoration: InputDecoration(
-                                  labelText: 'Gruppe',
-                                  filled: true,
-                                  fillColor: Colors.grey.withOpacity(0.04),
-                                  contentPadding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 14,
-                                  ),
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                    borderSide: BorderSide(
-                                      color: Colors.grey.shade300,
-                                    ),
-                                  ),
-                                  enabledBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                    borderSide: BorderSide(
-                                      color: Colors.grey.shade300,
-                                    ),
-                                  ),
-                                ),
+                                // ... Decoration bleibt gleich ...
                                 items: [
-                                  const DropdownMenuItem<String>(
-                                    value: null,
-                                    child: Text(
-                                      'Keine Gruppe',
-                                      style: TextStyle(fontSize: 13),
+                                  // Option "Keine Gruppe" nur anzeigen, wenn man aus der aktuellen Gruppe austreten darf
+                                  if (_currentProject['group'] == null ||
+                                      _manageableGroups.any(
+                                        (g) =>
+                                            g['id'] ==
+                                            _currentProject['group']['id'],
+                                      ))
+                                    const DropdownMenuItem<String>(
+                                      value: null,
+                                      child: Text(
+                                        'Keine Gruppe',
+                                        style: TextStyle(fontSize: 13),
+                                      ),
                                     ),
-                                  ),
-                                  ..._userGroups.map((group) {
+                                  // Nur die Gruppen anzeigen, in denen man Admin/PO ist
+                                  ..._manageableGroups.map((group) {
                                     return DropdownMenuItem<String>(
                                       value: group['id'].toString(),
                                       child: Text(
                                         group['name'],
                                         style: const TextStyle(fontSize: 13),
-                                        overflow: TextOverflow.ellipsis,
                                       ),
                                     );
                                   }).toList(),
@@ -417,6 +424,25 @@ class _ProjectInfoScreenState extends State<ProjectInfoScreen>
                                     _selectedGroupId = value;
                                   });
                                 },
+                              ),
+                            )
+                          else if (_isEditing && _manageableGroups.isEmpty)
+                            // Info-Text, wenn man keine Rechte hat
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 8,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.grey.shade100,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: const Text(
+                                'Keine Berechtigung zur Gruppenänderung',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey,
+                                ),
                               ),
                             )
                           else
