@@ -24,7 +24,7 @@ class KanbanContainerWidget extends StatelessWidget {
   final Function(int subtaskId, bool currentStatus) onToggleSubtask;
   final Function(Map<String, dynamic> taskData) onManageSubtasks;
   final Function(Map<String, dynamic> task) onTaskTap;
-
+  final Function(int taskId, bool isReady) onToggleReady; // NEU
   final bool isReorderMode;
 
   const KanbanContainerWidget({
@@ -43,6 +43,7 @@ class KanbanContainerWidget extends StatelessWidget {
     required this.onManageSubtasks,
     required this.isReorderMode,
     required this.onTaskTap,
+    required this.onToggleReady, // NEU
   });
 
   @override
@@ -50,21 +51,15 @@ class KanbanContainerWidget extends StatelessWidget {
     final tasks = (container['tasks'] as List<dynamic>?) ?? [];
     final containerId = int.tryParse(container['id']?.toString() ?? '') ?? 0;
     final containerName = container['name']?.toString() ?? 'Spalte';
+    final forceStatus = container['force_status'] as String?;
 
-    // Das DragTarget sitzt als äußerster Rahmen um die gesamte Spalte
     return DragTarget<Map<String, dynamic>>(
       key: ValueKey('container_$containerId'),
       onAcceptWithDetails: (details) {
         final task = details.data;
         final taskId = int.tryParse(task['id']?.toString() ?? '') ?? 0;
-
         if (taskId > 0 && containerId > 0) {
-          // Die Task wird in den freien Bereich der Spalte fallen gelassen.
-          // Also ist die Zielposition das Ende der aktuellen Task-Liste dieser Spalte.
-          final tasks = (container['tasks'] as List<dynamic>?) ?? [];
           final newPosition = tasks.length;
-
-          // Hier übergeben wir jetzt alle 3 Parameter
           onTaskDropped(task, containerId, newPosition);
         }
       },
@@ -83,56 +78,76 @@ class KanbanContainerWidget extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Spalten-Header mit Titel und Menü
+              // Spalten-Header
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
+                  // Der Name der Spalte bekommt flexiblen Platz
                   Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.all(4.0),
-                      child: Text(
-                        containerName,
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
+                    child: Row(
+                      children: [
+                        Flexible(
+                          // <-- Verhindert den Overflow!
+                          child: Text(
+                            containerName,
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
-                      ),
+                        if (forceStatus != null) ...[
+                          const SizedBox(width: 4),
+                          Icon(
+                            Icons.lock_clock,
+                            size: 16,
+                            color: Colors.orange.shade700,
+                          ),
+                        ],
+                      ],
                     ),
                   ),
-                  IconButton(
-                    tooltip: 'Aufgabe hinzufügen',
-                    icon: const Icon(Icons.add_circle_outline),
-                    onPressed: () => onCreateTask(containerId),
-                  ),
-                  PopupMenuButton<String>(
-                    icon: const Icon(Icons.more_vert),
-                    onSelected: (value) {
-                      if (value == 'edit') {
-                        onEditContainer(containerId, containerName);
-                      } else if (value == 'delete') {
-                        onDeleteContainer(containerId, containerName);
-                      }
-                    },
-                    itemBuilder: (BuildContext context) => [
-                      const PopupMenuItem<String>(
-                        value: 'edit',
-                        child: Row(
-                          children: [
-                            Icon(Icons.edit, size: 18, color: Colors.blue),
-                            SizedBox(width: 8),
-                            Text('Bearbeiten'),
-                          ],
-                        ),
+                  // Die Buttons bleiben fest rechts
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        tooltip: 'Aufgabe hinzufügen',
+                        icon: const Icon(Icons.add_circle_outline),
+                        onPressed: () => onCreateTask(containerId),
                       ),
-                      const PopupMenuItem<String>(
-                        value: 'delete',
-                        child: Row(
-                          children: [
-                            Icon(Icons.delete, size: 18, color: Colors.red),
-                            SizedBox(width: 8),
-                            Text('Löschen'),
-                          ],
-                        ),
+                      PopupMenuButton<String>(
+                        icon: const Icon(Icons.more_vert),
+                        onSelected: (value) {
+                          if (value == 'edit') {
+                            onEditContainer(containerId, containerName);
+                          } else if (value == 'delete') {
+                            onDeleteContainer(containerId, containerName);
+                          }
+                        },
+                        itemBuilder: (BuildContext context) => [
+                          const PopupMenuItem<String>(
+                            value: 'edit',
+                            child: Row(
+                              children: [
+                                Icon(Icons.edit, size: 18, color: Colors.blue),
+                                SizedBox(width: 8),
+                                Text('Bearbeiten'),
+                              ],
+                            ),
+                          ),
+                          const PopupMenuItem<String>(
+                            value: 'delete',
+                            child: Row(
+                              children: [
+                                Icon(Icons.delete, size: 18, color: Colors.red),
+                                SizedBox(width: 8),
+                                Text('Löschen'),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
@@ -140,17 +155,15 @@ class KanbanContainerWidget extends StatelessWidget {
               ),
               const Divider(),
 
-              // Normale, flüssige Aufgabenliste ohne störende Griff-Balken
-              // Statt Expanded(child: ListView.builder(...)) nimm das hier:
+              // Aufgabenliste
               Expanded(
                 child: tasks.isEmpty
                     ? const Center(child: Text('Noch keine Aufgaben'))
                     : ListView.builder(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
+                        // Das ist der Trick für flüssiges Scrollen
+                        physics: const AlwaysScrollableScrollPhysics(),
                         itemCount: tasks.length + 1,
                         itemBuilder: (context, taskIndex) {
-                          // Ganz unten in der Spalte
                           if (taskIndex == tasks.length) {
                             return DragTarget<Map<String, dynamic>>(
                               onAcceptWithDetails: (details) {
@@ -187,15 +200,19 @@ class KanbanContainerWidget extends StatelessWidget {
                           final task = tasks[taskIndex] as Map<String, dynamic>;
                           final taskCard = KanbanTaskCard(
                             task: task,
+                            forceStatus:
+                                forceStatus, // NEU: An die Karte übergeben
                             onEdit: onEditTask,
                             onDelete: onDeleteTask,
                             onAddSubtask: onAddSubtask,
                             onToggleSubtask: onToggleSubtask,
                             onManageSubtasks: onManageSubtasks,
                             onTap: () => onTaskTap(task),
+                            onToggleReady: onToggleReady, // NEU
                           );
 
                           if (isReorderMode) return taskCard;
+
                           return DragTarget<Map<String, dynamic>>(
                             onWillAcceptWithDetails: (details) =>
                                 details.data['id'] != task['id'],
@@ -210,14 +227,11 @@ class KanbanContainerWidget extends StatelessWidget {
                               final isHovering = candidateData.isNotEmpty;
                               return Column(
                                 children: [
-                                  if (isHovering) // Die blaue Linie
+                                  if (isHovering)
                                     Container(height: 4, color: Colors.blue),
                                   LongPressDraggable<Map<String, dynamic>>(
                                     data: task,
-                                    delay: const Duration(
-                                      milliseconds: 200,
-                                    ), // Kurzer Klick = Dialog
-
+                                    delay: const Duration(milliseconds: 200),
                                     feedback: Material(
                                       elevation: 6,
                                       color: Colors.transparent,

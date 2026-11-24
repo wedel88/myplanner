@@ -15,9 +15,10 @@ class Task extends Model
         'title',
         'description',
         'status',
+        'is_ready', // <-- NEU HINZUFÜGEN
         'assigned_user_id',
-        'planned_start_at', // <-- NEU
-        'planned_end_at',   // <-- NEU
+        'planned_start_at',
+        'planned_end_at',
         'due_at',
         'position',
     ];

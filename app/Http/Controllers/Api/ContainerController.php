@@ -27,12 +27,13 @@ class ContainerController extends Controller
     }
 
     // Einen neuen Container (Spalte) erstellen
-    public function store(Request $request)
+        public function store(Request $request)
     {
         $validated = $request->validate([
             'project_id' => 'required|exists:projects,id',
             'name' => 'required|string|max:255',
             'position' => 'nullable|integer',
+            'force_status' => 'nullable|string|in:open,in_progress,completed,closed_incomplete', // NEU
         ]);
 
         $container = Container::create($validated);
@@ -55,6 +56,7 @@ class ContainerController extends Controller
         $validated = $request->validate([
             'name' => 'sometimes|required|string|max:255',
             'position' => 'sometimes|integer',
+            'force_status' => 'nullable|string|in:open,in_progress,completed,closed_incomplete', // NEU: Validierung für den Force-Status
         ]);
 
         $container->update($validated);

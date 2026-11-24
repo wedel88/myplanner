@@ -83,41 +83,78 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
 
   void _showCreateContainerDialog() {
     final nameController = TextEditingController();
+    String? selectedForceStatus; // NEU
 
     showDialog<void>(
       context: context,
       builder: (dialogContext) {
-        return AlertDialog(
-          title: const Text('Neue Spalte erstellen'),
-          content: TextField(
-            controller: nameController,
-            decoration: const InputDecoration(
-              labelText: 'Spaltenname (z. B. In Progress)',
-            ),
-            textCapitalization: TextCapitalization.sentences,
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('Abbrechen'),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                final name = nameController.text.trim();
-                if (name.isEmpty) return;
-
-                Navigator.pop(dialogContext);
-                await _createContainer(name);
-              },
-              child: const Text('Erstellen'),
-            ),
-          ],
+        return StatefulBuilder(
+          // Wichtig, damit das Dropdown sich aktualisiert
+          builder: (context, setStateDialog) {
+            return AlertDialog(
+              title: const Text('Neue Spalte erstellen'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: nameController,
+                    decoration: const InputDecoration(
+                      labelText: 'Spaltenname (z. B. In Progress)',
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  // NEU: Force Status Dropdown
+                  DropdownButtonFormField<String>(
+                    value: selectedForceStatus,
+                    decoration: const InputDecoration(
+                      labelText: 'Status erzwingen (optional)',
+                    ),
+                    items: const [
+                      DropdownMenuItem(
+                        value: null,
+                        child: Text('Keiner (Manuell)'),
+                      ),
+                      DropdownMenuItem(value: 'open', child: Text('Offen')),
+                      DropdownMenuItem(
+                        value: 'in_progress',
+                        child: Text('In Bearbeitung'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'completed',
+                        child: Text('Erledigt'),
+                      ),
+                    ],
+                    onChanged: (val) =>
+                        setStateDialog(() => selectedForceStatus = val),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext),
+                  child: const Text('Abbrechen'),
+                ),
+                ElevatedButton(
+                  onPressed: () async {
+                    final name = nameController.text.trim();
+                    if (name.isEmpty) return;
+                    Navigator.pop(dialogContext);
+                    await _createContainer(
+                      name,
+                      forceStatus: selectedForceStatus,
+                    ); // Parameter übergeben
+                  },
+                  child: const Text('Erstellen'),
+                ),
+              ],
+            );
+          },
         );
       },
-    ).then((_) => nameController.dispose());
+    );
   }
 
-  Future<void> _createContainer(String name) async {
+  Future<void> _createContainer(String name, {String? forceStatus}) async {
     final url = Uri.parse('$apiBaseUrl/containers');
     final headers = await AuthService.getHeaders();
     if (!mounted) return; // 🛡️ Schutz nach await
@@ -126,7 +163,11 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
       final response = await http.post(
         url,
         headers: headers,
-        body: jsonEncode({'project_id': widget.projectId, 'name': name}),
+        body: jsonEncode({
+          'project_id': widget.projectId,
+          'name': name,
+          'force_status': forceStatus, // NEU
+        }),
       );
       if (!mounted) return; // 🛡️ Schutz nach await
 
@@ -146,49 +187,100 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
   void _showEditContainerDialog(int containerId, String currentName) {
     final nameController = TextEditingController(text: currentName);
 
+    // Finde den aktuellen Force-Status der Spalte
+    final container = containers.firstWhere(
+      (c) => int.tryParse(c['id'].toString()) == containerId,
+      orElse: () => null,
+    );
+    String? selectedForceStatus = container?['force_status'];
+
     showDialog<void>(
       context: context,
       builder: (dialogContext) {
-        return AlertDialog(
-          title: const Text('Spalte bearbeiten'),
-          content: TextField(
-            controller: nameController,
-            decoration: const InputDecoration(labelText: 'Spaltenname'),
-            textCapitalization: TextCapitalization.sentences,
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('Abbrechen'),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                final newName = nameController.text.trim();
-                if (newName.isEmpty) return;
+        return StatefulBuilder(
+          // Wichtig für Dropdown-Updates
+          builder: (context, setStateDialog) {
+            return AlertDialog(
+              title: const Text('Spalte bearbeiten'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: nameController,
+                    decoration: const InputDecoration(labelText: 'Spaltenname'),
+                  ),
+                  const SizedBox(height: 16),
+                  DropdownButtonFormField<String>(
+                    value: selectedForceStatus,
+                    decoration: const InputDecoration(
+                      labelText: 'Status erzwingen (Kanban-Mode)',
+                    ),
+                    items: const [
+                      DropdownMenuItem(
+                        value: null,
+                        child: Text('Keiner (Manuell)'),
+                      ),
+                      DropdownMenuItem(value: 'open', child: Text('Offen')),
+                      DropdownMenuItem(
+                        value: 'in_progress',
+                        child: Text('In Bearbeitung'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'completed',
+                        child: Text('Erledigt'),
+                      ),
+                    ],
+                    onChanged: (val) =>
+                        setStateDialog(() => selectedForceStatus = val),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext),
+                  child: const Text('Abbrechen'),
+                ),
+                ElevatedButton(
+                  onPressed: () async {
+                    final newName = nameController.text.trim();
+                    if (newName.isEmpty) return;
 
-                Navigator.pop(dialogContext);
-                await _updateContainer(containerId, newName);
-              },
-              child: const Text('Speichern'),
-            ),
-          ],
+                    Navigator.pop(dialogContext);
+                    await _updateContainer(
+                      containerId,
+                      newName,
+                      forceStatus: selectedForceStatus,
+                    ); // Parameter übergeben
+                  },
+                  child: const Text('Speichern'),
+                ),
+              ],
+            );
+          },
         );
       },
-    ).then((_) => nameController.dispose());
+    );
   }
 
-  Future<void> _updateContainer(int containerId, String name) async {
+  Future<void> _updateContainer(
+    int containerId,
+    String name, {
+    String? forceStatus,
+  }) async {
     final url = Uri.parse('$apiBaseUrl/containers/$containerId');
     final headers = await AuthService.getHeaders();
-    if (!mounted) return; // 🛡️ Schutz nach await
+    if (!mounted) return;
 
     try {
       final response = await http.put(
         url,
         headers: headers,
-        body: jsonEncode({'name': name}),
+        body: jsonEncode({
+          'name': name,
+          'force_status': forceStatus, // NEU
+        }),
       );
-      if (!mounted) return; // 🛡️ Schutz nach await
+      if (!mounted) return;
 
       if (response.statusCode == 200 || response.statusCode == 204) {
         await fetchBoardData();
@@ -695,9 +787,10 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
     int containerId,
     int newPosition,
   ) async {
-    final url = Uri.parse('$apiBaseUrl/tasks/$taskId/reorder');
+    // Wir rufen den 'move'-Endpunkt auf, damit der Status aktualisiert wird
+    final url = Uri.parse('$apiBaseUrl/tasks/$taskId/move');
     final headers = await AuthService.getHeaders();
-    if (!mounted) return; // 🛡️ Schutz nach await
+    if (!mounted) return;
 
     try {
       final response = await http.patch(
@@ -708,16 +801,49 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
           'position': newPosition,
         }),
       );
-      if (!mounted) return; // 🛡️ Schutz nach await
+      if (!mounted) return;
 
-      if (response.statusCode != 200 && response.statusCode != 204) {
-        debugPrint(
-          'Fehler beim Speichern der Task-Position: ${response.statusCode}',
-        );
+      if (response.statusCode == 200 || response.statusCode == 204) {
+        // Nach dem Verschieben laden wir das Board neu, um den neuen Status anzuzeigen
+        await fetchBoardData(showLoader: false);
+      } else {
+        debugPrint('Fehler beim Verschieben: ${response.statusCode}');
       }
     } catch (e) {
-      if (!mounted) return;
-      debugPrint('Netzwerkfehler beim Speichern der Task-Position: $e');
+      debugPrint('Netzwerkfehler beim Verschieben: $e');
+    }
+  }
+
+  Future<void> _toggleTaskReady(int taskId, bool isReady) async {
+    final url = Uri.parse('$apiBaseUrl/tasks/$taskId');
+    final headers = await AuthService.getHeaders();
+
+    // 1. Optimistisches UI-Update (sofort anzeigen)
+    setState(() {
+      for (var container in containers) {
+        final tasks = container['tasks'] as List;
+        final taskIndex = tasks.indexWhere((t) => t['id'] == taskId);
+        if (taskIndex != -1) {
+          tasks[taskIndex]['is_ready'] = isReady;
+          break;
+        }
+      }
+    });
+
+    try {
+      final response = await http.put(
+        url,
+        headers: headers,
+        body: jsonEncode({'is_ready': isReady}),
+      );
+
+      if (response.statusCode != 200) {
+        // Falls der Server einen Fehler zurückgibt, machen wir das rückgängig
+        fetchBoardData(showLoader: false);
+      }
+    } catch (e) {
+      debugPrint('Fehler beim Aktualisieren von is_ready: $e');
+      fetchBoardData(showLoader: false);
     }
   }
 
@@ -1243,6 +1369,8 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
         onToggleSubtask: (subtaskId, currentStatus) =>
             _toggleSubtask(subtaskId, currentStatus),
         onManageSubtasks: (taskData) => _showManageSubtasksDialog(taskData),
+        onToggleReady: (taskId, isReady) => _toggleTaskReady(taskId, isReady),
+
         onTaskTap: (Map<String, dynamic> taskData) {
           Navigator.push(
             context,

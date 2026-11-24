@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Task;
 use Illuminate\Http\Request;
+use App\Models\Container;
 
 class TaskController extends Controller
 {
@@ -54,7 +55,7 @@ class TaskController extends Controller
     }
 
     // Eine Aufgabe aktualisieren (z.B. Status ändern oder Verschieben in andere Spalte)
-        public function update(Request $request, Task $task)
+    public function update(Request $request, Task $task)
     {
         $validated = $request->validate([
             'container_id' => 'sometimes|exists:containers,id',
@@ -86,19 +87,27 @@ class TaskController extends Controller
     {
         $request->validate([
             'container_id' => 'required|exists:containers,id',
-            'position' => 'nullable|integer', // Optional: Die genaue Zielposition
+            'position' => 'nullable|integer',
         ]);
 
         $targetContainerId = $request->container_id;
         $newPosition = $request->position ?? 0;
 
-        // Aktualisiere Container und Position der verschobenen Task
+        // NEU: Prüfen, ob die Ziel-Spalte einen Force-Status hat
+        $targetContainer = Container::find($targetContainerId);
+        $newStatus = $task->status;
+
+        if ($targetContainer && $targetContainer->force_status) {
+            $newStatus = $targetContainer->force_status;
+        }
+
         $task->update([
             'container_id' => $targetContainerId,
             'position' => $newPosition,
+            'status' => $newStatus,
         ]);
 
-        return response()->json(['message' => 'Task erfolgreich verschoben']);
+        return response()->json(['message' => 'Task verschoben', 'new_status' => $newStatus]);
     }
     // In TaskController.php hinzufügen:
     public function reorder(Request $request, Task $task)
