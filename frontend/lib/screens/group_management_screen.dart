@@ -4,6 +4,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:http/http.dart' as http;
 
 import '../services/auth_service.dart';
+import '../widgets/app_navigation_bar.dart';
 
 class GroupManagementScreen extends StatefulWidget {
   final String apiBaseUrl;
@@ -499,7 +500,9 @@ class _GroupManagementScreenState extends State<GroupManagementScreen> {
   Widget build(BuildContext context) {
     if (_error != null) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Gruppenverwaltung')),
+        backgroundColor: Colors.grey.shade50,
+        // Auch im Fehlerfall die Navigation anzeigen
+        appBar: const AppNavigationBar(currentRoute: '/groups'),
         body: Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -518,10 +521,10 @@ class _GroupManagementScreenState extends State<GroupManagementScreen> {
     final isDesktop = MediaQuery.of(context).size.width > 800;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Gruppen- & Mitgliederverwaltung'),
-        elevation: 0,
-      ),
+      backgroundColor: Colors.grey.shade50, // Konsistenter Hintergrund
+      // ==================== HIER IST DIE NEUE APPBAR ====================
+      appBar: const AppNavigationBar(currentRoute: '/groups'),
+      // ================================================================
       body: _isLoading && _myGroups.isEmpty
           ? const Center(child: CircularProgressIndicator())
           : Center(
@@ -543,9 +546,19 @@ class _GroupManagementScreenState extends State<GroupManagementScreen> {
                               decoration: InputDecoration(
                                 labelText: 'Aktive Gruppe wählen',
                                 filled: true,
-                                fillColor: Colors.grey.withOpacity(0.04),
+                                fillColor: Colors
+                                    .white, // Weißer Hintergrund für Formular
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(12),
+                                  borderSide: BorderSide(
+                                    color: Colors.grey.shade300,
+                                  ),
+                                ),
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: BorderSide(
+                                    color: Colors.grey.shade300,
+                                  ),
                                 ),
                               ),
                               items: _myGroups.map((group) {

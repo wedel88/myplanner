@@ -7,6 +7,7 @@ import 'package:fl_chart/fl_chart.dart';
 
 import '../main.dart';
 import '../services/auth_service.dart';
+import '../widgets/app_navigation_bar.dart'; // Für die einheitliche Navigation
 
 class UserDashboardScreen extends StatefulWidget {
   const UserDashboardScreen({super.key});
@@ -262,7 +263,6 @@ class _UserDashboardScreenState extends State<UserDashboardScreen> {
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setStateDialog) {
-          // 1. Daten für das Chart berechnen (basierend auf _filteredTasks)
           final chartData = _calculateChartData(timeRange);
 
           return AlertDialog(
@@ -278,7 +278,6 @@ class _UserDashboardScreenState extends State<UserDashboardScreen> {
               height: 350,
               child: Column(
                 children: [
-                  // Zeitraum-Auswahl
                   SegmentedButton<String>(
                     segments: const [
                       ButtonSegment(value: 'yesterday', label: Text('Gestern')),
@@ -292,8 +291,6 @@ class _UserDashboardScreenState extends State<UserDashboardScreen> {
                     },
                   ),
                   const SizedBox(height: 24),
-
-                  // Das Chart
                   Expanded(
                     child: BarChart(
                       BarChartData(
@@ -369,8 +366,8 @@ class _UserDashboardScreenState extends State<UserDashboardScreen> {
     );
   }
 
-  // Hilfsfunktion zur Berechnung der Chart-Daten (alles lokal im Frontend!)
   List<Map<String, dynamic>> _calculateChartData(String range) {
+    // (Unverändert aus deinem vorherigen Code)
     final now = DateTime.now();
     final completedTasks = _filteredTasks
         .where((t) => t['status'] == 'completed')
@@ -388,7 +385,6 @@ class _UserDashboardScreenState extends State<UserDashboardScreen> {
       }).length;
       result.add({'label': 'Gestern', 'value': count});
     } else if (range == 'today') {
-      // Stunden 0 bis 23
       for (int i = 0; i < 24; i++) {
         int count = completedTasks.where((t) {
           if (t['updated_at'] == null) return false;
@@ -398,11 +394,9 @@ class _UserDashboardScreenState extends State<UserDashboardScreen> {
               date.day == now.day &&
               date.hour == i;
         }).length;
-        // Zeige nur jede 4. Stunde auf der Achse
         result.add({'label': i % 4 == 0 ? '$i:00' : '', 'value': count});
       }
     } else if (range == '7_days') {
-      // Letzte 7 Tage
       for (int i = 6; i >= 0; i--) {
         final date = now.subtract(Duration(days: i));
         int count = completedTasks.where((t) {
@@ -415,7 +409,6 @@ class _UserDashboardScreenState extends State<UserDashboardScreen> {
         result.add({'label': '${date.day}.${date.month}.', 'value': count});
       }
     } else if (range == 'month') {
-      // Letzte 30 Tage (zusammengefasst in 5-Tage-Blöcke für bessere Lesbarkeit)
       for (int i = 4; i >= 0; i--) {
         final start = now.subtract(Duration(days: (i * 6) + 5));
         final end = now.subtract(Duration(days: i * 6));
@@ -431,36 +424,235 @@ class _UserDashboardScreenState extends State<UserDashboardScreen> {
     return result;
   }
 
+  // ==================== WIDGETS FÜR DIE ZEITLINIE ====================
+
+  Widget _buildTaskList() {
+    if (_filteredTasks.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.all(32.0),
+        child: Center(
+          child: Text(
+            'Keine Aufgaben für diesen Filter gefunden.',
+            style: TextStyle(color: Colors.grey),
+          ),
+        ),
+      );
+    }
+
+    return ListView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: _filteredTasks.length,
+      itemBuilder: (context, index) {
+        final task = _filteredTasks[index];
+        final isCompleted = task['status'] == 'completed';
+        final isOverdue =
+            !isCompleted &&
+            task['due_at'] != null &&
+            DateTime.parse(task['due_at']).isBefore(DateTime.now());
+
+        return Card(
+          elevation: 0,
+          margin: const EdgeInsets.only(bottom: 8),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: BorderSide(color: Colors.grey.shade200),
+          ),
+          child: ListTile(
+            leading: Icon(
+              isCompleted ? Icons.check_circle : Icons.radio_button_unchecked,
+              color: isCompleted
+                  ? Colors.green
+                  : (isOverdue ? Colors.red : Colors.grey),
+            ),
+            title: Text(
+              task['title'] ?? 'Aufgabe',
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                decoration: isCompleted ? TextDecoration.lineThrough : null,
+                color: isCompleted ? Colors.grey : Colors.black87,
+              ),
+            ),
+            subtitle: Text(
+              'Projekt: ${task['container']?['project']?['name'] ?? 'Unbekannt'}',
+              style: const TextStyle(fontSize: 12),
+            ),
+            trailing: isOverdue
+                ? const Icon(Icons.warning, color: Colors.red)
+                : Text(
+                    task['due_at'] != null
+                        ? task['due_at'].toString().substring(0, 10)
+                        : '',
+                    style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                  ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildTimeline() {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+
+    // 1. Aufgaben filtern: Nur Aufgaben mit Datum, die HEUTE oder in ZUKUNFT liegen (oder überfällig sind)
+    final timelineTasks = _filteredTasks.where((task) {
+      // Wir nehmen das relevanteste Datum (Ende oder Deadline)
+      final dateStr = task['planned_end_at'] ?? task['due_at'];
+      if (dateStr == null) return false;
+
+      final date = DateTime.parse(dateStr);
+      // Zeige nur Aufgaben, deren Datum heute oder in der Zukunft liegt
+      return date.isAfter(today.subtract(const Duration(days: 1)));
+    }).toList();
+
+    if (timelineTasks.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.all(32.0),
+        child: Center(
+          child: Text(
+            'Keine geplanten Aufgaben in der Zukunft.',
+            style: TextStyle(color: Colors.grey),
+          ),
+        ),
+      );
+    }
+
+    // 2. Gruppieren nach Tag
+    Map<DateTime, List<dynamic>> groupedTasks = {};
+
+    for (var task in timelineTasks) {
+      final dateStr = task['planned_end_at'] ?? task['due_at'];
+      final date = DateTime.parse(dateStr);
+      // Wir entfernen die Uhrzeit, damit wir nach Tagen gruppieren können
+      final dayOnly = DateTime(date.year, date.month, date.day);
+
+      if (!groupedTasks.containsKey(dayOnly)) {
+        groupedTasks[dayOnly] = [];
+      }
+      groupedTasks[dayOnly]!.add(task);
+    }
+
+    // 3. Die Tage korrekt sortieren (Echte DateTime-Sortierung, nicht String!)
+    final sortedDates = groupedTasks.keys.toList()
+      ..sort((a, b) => a.compareTo(b));
+
+    return ListView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: sortedDates.length,
+      itemBuilder: (context, index) {
+        final date = sortedDates[index];
+        final tasksForDate = groupedTasks[date]!;
+        final dateLabel =
+            "${date.day.toString().padLeft(2, '0')}.${date.month.toString().padLeft(2, '0')}.${date.year}";
+
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Icon(
+                    Icons.calendar_today,
+                    size: 16,
+                    color: Colors.blue,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    dateLabel,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 15,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(child: Divider(color: Colors.grey.shade300)),
+                ],
+              ),
+              const SizedBox(height: 8),
+
+              ...tasksForDate.map((task) {
+                final dueDate = task['due_at'] != null
+                    ? DateTime.parse(task['due_at'])
+                    : null;
+                final isOverdue =
+                    dueDate != null &&
+                    dueDate.isBefore(now) &&
+                    task['status'] != 'completed';
+
+                return Card(
+                  elevation: 0,
+                  margin: const EdgeInsets.only(bottom: 8, left: 24),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    side: BorderSide(color: Colors.grey.shade200),
+                  ),
+                  child: ListTile(
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 4,
+                    ),
+                    leading: Container(
+                      width: 4,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: isOverdue ? Colors.red : Colors.blue,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                    title: Text(
+                      task['title'] ?? 'Aufgabe',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14,
+                      ),
+                    ),
+                    subtitle: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          task['container']?['project']?['name'] ?? 'Unbekannt',
+                          style: const TextStyle(fontSize: 11),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Bis: ${dateLabel}', // Da wir nach dem relevantesten Datum gruppiert haben
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: isOverdue
+                                ? Colors.red
+                                : Colors.grey.shade600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final bool isDesktop = MediaQuery.of(context).size.width > 800;
+    final bool isDesktop =
+        MediaQuery.of(context).size.width > 900; // Etwas höher für 2 Spalten
 
     return Scaffold(
       backgroundColor: Colors.grey.shade50,
-      appBar: AppBar(
-        title: const Text(
-          'Dashboard',
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
-        backgroundColor: Colors.white,
-        elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.black87),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh, color: Colors.black87),
-            onPressed: _fetchDashboardData,
-            tooltip: 'Aktualisieren',
-          ),
-          const SizedBox(width: 8),
-        ],
-      ),
+      appBar: const AppNavigationBar(currentRoute: '/dashboard'),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : Center(
               child: ConstrainedBox(
                 constraints: BoxConstraints(
-                  maxWidth: isDesktop ? 1000 : double.infinity,
-                ),
+                  maxWidth: isDesktop ? 1200 : double.infinity,
+                ), // Breiter für 2 Spalten
                 child: SingleChildScrollView(
                   padding: const EdgeInsets.all(24.0),
                   child: Column(
@@ -498,7 +690,7 @@ class _UserDashboardScreenState extends State<UserDashboardScreen> {
                             child: Row(
                               children: [
                                 const Text(
-                                  'Nur meine Aufgaben',
+                                  'Nur meine',
                                   style: TextStyle(fontWeight: FontWeight.w500),
                                 ),
                                 Switch(
@@ -517,7 +709,6 @@ class _UserDashboardScreenState extends State<UserDashboardScreen> {
                       // ==================== 2. STATISTIK KARTEN ====================
                       Row(
                         children: [
-                          // Klick öffnet das Torten-Diagramm
                           _buildStatCard(
                             'Gesamt',
                             _filteredStats['total']!,
@@ -526,7 +717,6 @@ class _UserDashboardScreenState extends State<UserDashboardScreen> {
                             onTap: _showTotalPieChart,
                           ),
                           const SizedBox(width: 12),
-                          // Nicht klickbar
                           _buildStatCard(
                             'Offen',
                             _filteredStats['pending']!,
@@ -534,7 +724,6 @@ class _UserDashboardScreenState extends State<UserDashboardScreen> {
                             Colors.orange,
                           ),
                           const SizedBox(width: 12),
-                          // Klick öffnet das Balken-Diagramm
                           _buildStatCard(
                             'Erledigt',
                             _filteredStats['completed']!,
@@ -543,7 +732,6 @@ class _UserDashboardScreenState extends State<UserDashboardScreen> {
                             onTap: _showCompletedBarChart,
                           ),
                           const SizedBox(width: 12),
-                          // Nicht klickbar
                           _buildStatCard(
                             'Überfällig',
                             _filteredStats['overdue']!,
@@ -554,95 +742,76 @@ class _UserDashboardScreenState extends State<UserDashboardScreen> {
                       ),
                       const SizedBox(height: 32),
 
-                      // ==================== 3. TASK LISTE ====================
-                      const Text(
-                        'Anstehende Aufgaben',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 18,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      _filteredTasks.isEmpty
-                          ? const Padding(
-                              padding: EdgeInsets.all(32.0),
-                              child: Center(
-                                child: Text(
-                                  'Keine Aufgaben für diesen Filter gefunden.',
-                                  style: TextStyle(color: Colors.grey),
-                                ),
+                      // ==================== 3. DIE ZWEI SPALTEN (Liste & Timeline) ====================
+                      if (isDesktop)
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Linke Spalte: Aufgaben
+                            Expanded(
+                              flex: 1,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'Anstehende Aufgaben',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 18,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  _buildTaskList(),
+                                ],
                               ),
-                            )
-                          : ListView.builder(
-                              shrinkWrap: true,
-                              physics: const NeverScrollableScrollPhysics(),
-                              itemCount: _filteredTasks.length,
-                              itemBuilder: (context, index) {
-                                final task = _filteredTasks[index];
-                                final isCompleted =
-                                    task['status'] == 'completed';
-                                final isOverdue =
-                                    !isCompleted &&
-                                    task['due_at'] != null &&
-                                    DateTime.parse(task['due_at'])
-                                        .isBefore(DateTime.now());
-
-                                return Card(
-                                  elevation: 0,
-                                  margin: const EdgeInsets.only(bottom: 8),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                    side: BorderSide(
-                                      color: Colors.grey.shade200,
-                                    ),
-                                  ),
-                                  child: ListTile(
-                                    leading: Icon(
-                                      isCompleted
-                                          ? Icons.check_circle
-                                          : Icons.radio_button_unchecked,
-                                      color: isCompleted
-                                          ? Colors.green
-                                          : (isOverdue
-                                                ? Colors.red
-                                                : Colors.grey),
-                                    ),
-                                    title: Text(
-                                      task['title'] ?? 'Aufgabe',
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.w600,
-                                        decoration: isCompleted
-                                            ? TextDecoration.lineThrough
-                                            : null,
-                                        color: isCompleted
-                                            ? Colors.grey
-                                            : Colors.black87,
-                                      ),
-                                    ),
-                                    subtitle: Text(
-                                      'Projekt: ${task['container']?['project']?['name'] ?? 'Unbekannt'}',
-                                      style: const TextStyle(fontSize: 12),
-                                    ),
-                                    trailing: isOverdue
-                                        ? const Icon(
-                                            Icons.warning,
-                                            color: Colors.red,
-                                          )
-                                        : Text(
-                                            task['due_at'] != null
-                                                ? task['due_at']
-                                                      .toString()
-                                                      .substring(0, 10)
-                                                : '',
-                                            style: TextStyle(
-                                              fontSize: 12,
-                                              color: Colors.grey.shade600,
-                                            ),
-                                          ),
-                                  ),
-                                );
-                              },
                             ),
+                            const SizedBox(width: 32),
+                            // Rechte Spalte: Zeitplan
+                            Expanded(
+                              flex: 1,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'Zeitplan',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 18,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  _buildTimeline(),
+                                ],
+                              ),
+                            ),
+                          ],
+                        )
+                      else
+                        // Mobile Ansicht (Untereinander)
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Anstehende Aufgaben',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 18,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            _buildTaskList(),
+                            const SizedBox(height: 32),
+                            const Text(
+                              'Zeitplan',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 18,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            _buildTimeline(),
+                          ],
+                        ),
                     ],
                   ),
                 ),

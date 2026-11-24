@@ -9,6 +9,8 @@ import 'package:web/web.dart' as web;
 import '../services/auth_service.dart';
 import '../widgets/project_chat_sheet.dart';
 import '../widgets/project_files_dialog.dart';
+import '../widgets/inline_editable_text.dart'; // <-- Unser neues Widget
+import '../widgets/app_navigation_bar.dart'; // <-- Neue Navigation
 
 class ProjectInfoScreen extends StatefulWidget {
   final Map<String, dynamic> project;
@@ -24,31 +26,24 @@ class ProjectInfoScreen extends StatefulWidget {
   State<ProjectInfoScreen> createState() => _ProjectInfoScreenState();
 }
 
-// 👈 1. Mit 'WidgetsBindingObserver' erweitern, um App-Zustände (Vordergrund/Hintergrund) zu erkennen
 class _ProjectInfoScreenState extends State<ProjectInfoScreen>
     with WidgetsBindingObserver {
   late Map<String, dynamic> _currentProject;
   List<dynamic> _projectAttachments = [];
   List<dynamic> _userGroups = [];
-  List<dynamic> _manageableGroups = []; // Gruppen, in denen User Admin/PO ist
+  List<dynamic> _manageableGroups = [];
   String? _selectedGroupId;
 
   bool _isLoading = false;
-  bool _isEditing = false;
   bool _isSaving = false;
-
-  final TextEditingController _nameController = TextEditingController();
-  final TextEditingController _descController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this); // 👈 Observer registrieren
+    WidgetsBinding.instance.addObserver(this);
     _currentProject = Map.from(widget.project);
     _projectAttachments = _currentProject['attachments'] ?? [];
-
-    _nameController.text = _currentProject['name'] ?? '';
-    _descController.text = _currentProject['description'] ?? '';
+    _selectedGroupId = _currentProject['group_id']?.toString();
 
     _fetchProjectDetails();
     _fetchUserGroups();
@@ -56,25 +51,18 @@ class _ProjectInfoScreenState extends State<ProjectInfoScreen>
 
   @override
   void dispose() {
-    WidgetsBinding.instance.removeObserver(
-      this,
-    ); // 👈 Observer sauber entfernen
-    _nameController.dispose();
-    _descController.dispose();
+    WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
 
-  // 👇 2. Automatisch im Hintergrund triggern, wenn die App/der Screen wieder aktiv wird
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
     if (state == AppLifecycleState.resumed) {
-      // Wenn der Nutzer z. B. aus dem Browser/Hintergrund zurückkehrt
       _fetchProjectDetails(silent: true);
     }
   }
 
-  // 👈 Optional ein 'silent' Parameter, damit bei Hintergrund-Updates nicht der große Lade-Kreis angezeigt wird
   Future<void> _fetchProjectDetails({bool silent = false}) async {
     if (!mounted) return;
     if (!silent) setState(() => _isLoading = true);
@@ -117,7 +105,6 @@ class _ProjectInfoScreenState extends State<ProjectInfoScreen>
       if (response.statusCode == 200 && mounted) {
         final allGroups = jsonDecode(response.body) as List;
 
-        // Filtern: In welchen Gruppen ist der User Admin oder PO?
         List<dynamic> manageable = [];
         final me = await AuthService.getCurrentUserId();
 
@@ -143,68 +130,25 @@ class _ProjectInfoScreenState extends State<ProjectInfoScreen>
     }
   }
 
-  Future<void> _saveChanges() async {
+  // Speichert nur ein einzelnes Feld (Titel oder Beschreibung)
+  Future<void> _saveField(String field, String newValue) async {
     setState(() => _isSaving = true);
     final headers = await AuthService.getHeaders();
+
     try {
       final projectId = _currentProject['id'];
-
       final response = await http.put(
         Uri.parse('${widget.apiBaseUrl}/projects/$projectId'),
         headers: headers,
-        body: json.encode({
-          'name': _nameController.text.trim(),
-          'description': _descController.text.trim(),
-          'group_id': _selectedGroupId != null
-              ? int.parse(_selectedGroupId!)
-              : null,
-        }),
+        body: json.encode({field: newValue}),
       );
 
       if (!mounted) return;
 
       if (response.statusCode == 200) {
-        // Finde den Namen der ausgewählten Gruppe für die sofortige lokale Anzeige heraus
-        String? groupName;
-        if (_selectedGroupId != null) {
-          final foundGroup = _userGroups.firstWhere(
-            (g) => g['id'].toString() == _selectedGroupId,
-            orElse: () => null,
-          );
-          if (foundGroup != null) {
-            groupName = foundGroup['name'];
-          }
-        }
-
         setState(() {
-          _isEditing = false;
-          // Aktualisiere Name und Beschreibung lokal
-          _currentProject['name'] = _nameController.text.trim();
-          _currentProject['description'] = _descController.text.trim();
-          _currentProject['group_id'] = _selectedGroupId != null
-              ? int.parse(_selectedGroupId!)
-              : null;
-
-          // Setze oder lösche die 'group'-Relation sofort lokal, damit das Badge direkt bleibt!
-          if (_selectedGroupId != null && groupName != null) {
-            _currentProject['group'] = {
-              'id': int.parse(_selectedGroupId!),
-              'name': groupName,
-            };
-          } else {
-            _currentProject['group'] = null;
-          }
+          _currentProject[field] = newValue;
         });
-
-        // Optional im Hintergrund frisch von der API laden lassen
-        _fetchProjectDetails(silent: true);
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Änderungen erfolgreich gespeichert!'),
-            backgroundColor: Colors.green,
-          ),
-        );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -214,7 +158,6 @@ class _ProjectInfoScreenState extends State<ProjectInfoScreen>
         );
       }
     } catch (e) {
-      debugPrint('Verbindungsfehler: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -224,9 +167,87 @@ class _ProjectInfoScreenState extends State<ProjectInfoScreen>
         );
       }
     } finally {
-      if (mounted) {
-        setState(() => _isSaving = false);
+      if (mounted) setState(() => _isSaving = false);
+    }
+  }
+
+  // Öffnet das Popup zur Gruppenänderung
+  void _showGroupSelectionDialog() {
+    if (_manageableGroups.isEmpty && _currentProject['group'] != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Du hast keine Berechtigung, die Gruppe zu ändern.'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Gruppe zuweisen'),
+        content: SizedBox(
+          width: 300,
+          child: ListView(
+            shrinkWrap: true,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.folder_off, color: Colors.grey),
+                title: const Text('Keine Gruppe'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _updateProjectGroup(null);
+                },
+              ),
+              ..._manageableGroups.map(
+                (g) => ListTile(
+                  leading: const Icon(Icons.folder, color: Colors.blue),
+                  title: Text(g['name']),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _updateProjectGroup(g['id']);
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Abbrechen'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _updateProjectGroup(int? groupId) async {
+    setState(() => _isSaving = true);
+    final headers = await AuthService.getHeaders();
+    try {
+      final response = await http.put(
+        Uri.parse('${widget.apiBaseUrl}/projects/${_currentProject['id']}'),
+        headers: headers,
+        body: json.encode({'group_id': groupId}),
+      );
+
+      if (!mounted) return;
+      if (response.statusCode == 200) {
+        _fetchProjectDetails(silent: true); // Im Hintergrund aktualisieren
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Gruppe aktualisiert!'),
+            backgroundColor: Colors.green,
+          ),
+        );
       }
+    } catch (e) {
+      debugPrint('Fehler: $e');
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
     }
   }
 
@@ -262,7 +283,7 @@ class _ProjectInfoScreenState extends State<ProjectInfoScreen>
           await _fetchProjectDetails();
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Datei "$fileName" erfolgreich hochgeladen!'),
+              content: Text('Datei "$fileName" hochgeladen!'),
               backgroundColor: Colors.green,
             ),
           );
@@ -278,7 +299,6 @@ class _ProjectInfoScreenState extends State<ProjectInfoScreen>
     final bool isDesktop = MediaQuery.of(context).size.width > 800;
 
     List<dynamic> allFiles = [..._projectAttachments];
-
     if (_currentProject['containers'] != null) {
       for (var container in _currentProject['containers']) {
         if (container['tasks'] != null) {
@@ -295,33 +315,10 @@ class _ProjectInfoScreenState extends State<ProjectInfoScreen>
     }
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(_currentProject['name'] ?? 'Projekt-Info'),
-        elevation: 0,
-        actions: [
-          if (_isSaving)
-            const Padding(
-              padding: EdgeInsets.all(16.0),
-              child: SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              ),
-            )
-          else if (_isEditing)
-            IconButton(
-              icon: const Icon(Icons.save, color: Colors.green),
-              onPressed: _saveChanges,
-              tooltip: 'Speichern',
-            )
-          else
-            IconButton(
-              icon: const Icon(Icons.edit),
-              onPressed: () => setState(() => _isEditing = true),
-              tooltip: 'Bearbeiten',
-            ),
-        ],
-      ),
+      backgroundColor: Colors.grey.shade50,
+      appBar: const AppNavigationBar(
+        currentRoute: '/info',
+      ), // Navigation einheitlich
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : Center(
@@ -334,173 +331,74 @@ class _ProjectInfoScreenState extends State<ProjectInfoScreen>
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // ==================== PROJEKTNAME & GRUPPE (MODERN HEADER) ====================
+                      // ==================== PROJEKTNAME & GRUPPE ====================
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // Linke Seite: Projektname
                           Expanded(
-                            child: _isEditing
-                                ? TextField(
-                                    controller: _nameController,
-                                    decoration: InputDecoration(
-                                      labelText: 'Projektname',
-                                      filled: true,
-                                      fillColor: Colors.grey.withOpacity(0.04),
-                                      border: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                        borderSide: BorderSide(
-                                          color: Colors.grey.shade300,
-                                        ),
-                                      ),
-                                      enabledBorder: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                        borderSide: BorderSide(
-                                          color: Colors.grey.shade300,
-                                        ),
-                                      ),
-                                      focusedBorder: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                        borderSide: const BorderSide(
-                                          color: Colors.blue,
-                                          width: 1.5,
-                                        ),
-                                      ),
-                                    ),
-                                    style: const TextStyle(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  )
-                                : Text(
-                                    _currentProject['name'] ?? 'Kein Name',
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .headlineSmall
-                                        ?.copyWith(
-                                          fontWeight: FontWeight.bold,
-                                          letterSpacing: -0.5,
-                                        ),
+                            child: InlineEditableText(
+                              initialText:
+                                  _currentProject['name'] ?? 'Kein Name',
+                              textStyle: Theme.of(context)
+                                  .textTheme
+                                  .headlineSmall
+                                  ?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                    letterSpacing: -0.5,
                                   ),
+                              onSave: (newName) => _saveField('name', newName),
+                            ),
                           ),
                           const SizedBox(width: 16),
 
-                          // Rechte Seite: Gruppe (Dropdown im Edit-Mode, Badge oder Hinweis im View-Mode)
-                          if (_isEditing && _manageableGroups.isNotEmpty)
-                            SizedBox(
-                              width: 220,
-                              child: DropdownButtonFormField<String>(
-                                value: _selectedGroupId,
-                                isExpanded: true,
-                                // ... Decoration bleibt gleich ...
-                                items: [
-                                  // Option "Keine Gruppe" nur anzeigen, wenn man aus der aktuellen Gruppe austreten darf
-                                  if (_currentProject['group'] == null ||
-                                      _manageableGroups.any(
-                                        (g) =>
-                                            g['id'] ==
-                                            _currentProject['group']['id'],
-                                      ))
-                                    const DropdownMenuItem<String>(
-                                      value: null,
-                                      child: Text(
-                                        'Keine Gruppe',
-                                        style: TextStyle(fontSize: 13),
-                                      ),
-                                    ),
-                                  // Nur die Gruppen anzeigen, in denen man Admin/PO ist
-                                  ..._manageableGroups.map((group) {
-                                    return DropdownMenuItem<String>(
-                                      value: group['id'].toString(),
-                                      child: Text(
-                                        group['name'],
-                                        style: const TextStyle(fontSize: 13),
-                                      ),
-                                    );
-                                  }).toList(),
-                                ],
-                                onChanged: (value) {
-                                  setState(() {
-                                    _selectedGroupId = value;
-                                  });
-                                },
-                              ),
-                            )
-                          else if (_isEditing && _manageableGroups.isEmpty)
-                            // Info-Text, wenn man keine Rechte hat
-                            Container(
+                          // Gruppen-Badge (klickbar, wenn man Rechte hat)
+                          InkWell(
+                            onTap: _showGroupSelectionDialog,
+                            borderRadius: BorderRadius.circular(20),
+                            child: Container(
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 12,
                                 vertical: 8,
                               ),
                               decoration: BoxDecoration(
-                                color: Colors.grey.shade100,
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: const Text(
-                                'Keine Berechtigung zur Gruppenänderung',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.grey,
+                                color: _currentProject['group'] != null
+                                    ? Colors.blue.shade50
+                                    : Colors.grey.withOpacity(0.05),
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(
+                                  color: _currentProject['group'] != null
+                                      ? Colors.blue.shade100
+                                      : Colors.grey.shade200,
                                 ),
                               ),
-                            )
-                          else
-                            // 👈 NEU: Unterscheidung, ob Gruppe vorhanden oder nicht
-                            _currentProject['group'] != null
-                                ? Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                      vertical: 8,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: Colors.blue.shade50,
-                                      borderRadius: BorderRadius.circular(20),
-                                      border: Border.all(
-                                        color: Colors.blue.shade100,
-                                      ),
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Icon(
-                                          Icons.group,
-                                          size: 14,
-                                          color: Colors.blue.shade700,
-                                        ),
-                                        const SizedBox(width: 6),
-                                        Text(
-                                          _currentProject['group']['name'],
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                            fontWeight: FontWeight.w600,
-                                            color: Colors.blue.shade800,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  )
-                                : Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                      vertical: 8,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: Colors.grey.withOpacity(0.05),
-                                      borderRadius: BorderRadius.circular(20),
-                                      border: Border.all(
-                                        color: Colors.grey.shade200,
-                                      ),
-                                    ),
-                                    child: Text(
-                                      'Keine Gruppe zugewiesen',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: Colors.grey.shade600,
-                                        fontStyle: FontStyle.italic,
-                                      ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    _currentProject['group'] != null
+                                        ? Icons.group
+                                        : Icons.group_off,
+                                    size: 14,
+                                    color: _currentProject['group'] != null
+                                        ? Colors.blue.shade700
+                                        : Colors.grey.shade600,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    _currentProject['group']?['name'] ??
+                                        'Keine Gruppe',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                      color: _currentProject['group'] != null
+                                          ? Colors.blue.shade800
+                                          : Colors.grey.shade600,
                                     ),
                                   ),
+                                ],
+                              ),
+                            ),
+                          ),
                         ],
                       ),
 
@@ -515,53 +413,26 @@ class _ProjectInfoScreenState extends State<ProjectInfoScreen>
                         ),
                       ),
                       const SizedBox(height: 8),
-                      _isEditing
-                          ? TextField(
-                              controller: _descController,
-                              maxLines: 4,
-                              decoration: InputDecoration(
-                                hintText: 'Beschreibung eingeben...',
-                                filled: true,
-                                fillColor: Colors.grey.withOpacity(0.04),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                  borderSide: BorderSide(
-                                    color: Colors.grey.shade300,
-                                  ),
-                                ),
-                                enabledBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                  borderSide: BorderSide(
-                                    color: Colors.grey.shade300,
-                                  ),
-                                ),
-                                focusedBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                  borderSide: const BorderSide(
-                                    color: Colors.blue,
-                                    width: 1.5,
-                                  ),
-                                ),
-                              ),
-                            )
-                          : Container(
-                              padding: const EdgeInsets.all(16),
-                              width: double.infinity,
-                              decoration: BoxDecoration(
-                                color: Colors.grey.withOpacity(0.03),
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: Colors.grey.shade200),
-                              ),
-                              child: Text(
-                                _currentProject['description'] ??
-                                    'Keine Beschreibung vorhanden.',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: Colors.grey.shade800,
-                                  height: 1.4,
-                                ),
-                              ),
-                            ),
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        width: double.infinity,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.grey.shade200),
+                        ),
+                        child: InlineEditableText(
+                          initialText: _currentProject['description'] ?? 'Keine Beschreibung vorhanden. (Doppelklicken zum Bearbeiten)',
+                          textStyle: TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey.shade800,
+                            height: 1.4,
+                          ),
+                          maxLines: 4, // Mehrzeilig für Beschreibung
+                          onSave: (newDesc) =>
+                              _saveField('description', newDesc),
+                        ),
+                      ),
 
                       const Divider(height: 40),
 
@@ -666,7 +537,7 @@ class _ProjectInfoScreenState extends State<ProjectInfoScreen>
                                       ),
                                       subtitle: Text(
                                         isTaskFile
-                                            ? 'Task: ${taskTitle ?? 'Unbekannte Aufgabe'}'
+                                            ? 'Task: ${taskTitle ?? 'Unbekannt'}'
                                             : 'Projektweite Datei',
                                         style: const TextStyle(
                                           fontSize: 11,
@@ -680,9 +551,8 @@ class _ProjectInfoScreenState extends State<ProjectInfoScreen>
                                           Icons.download,
                                           size: 18,
                                         ),
-                                        onPressed: () {
-                                          web.window.open(fileUrl, '_blank');
-                                        },
+                                        onPressed: () =>
+                                            web.window.open(fileUrl, '_blank'),
                                       ),
                                     ),
                                   );
@@ -703,15 +573,21 @@ class _ProjectInfoScreenState extends State<ProjectInfoScreen>
                       const SizedBox(height: 12),
                       SizedBox(
                         height: 400,
-                        child: Stack(
-                          children: [
-                            ChatSheet(
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.grey.shade200),
+                          ),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(12),
+                            child: ChatSheet(
                               targetId: _currentProject['id'],
                               targetType: 'Project',
                               targetName: _currentProject['name'] ?? 'Projekt',
                               isEmbedded: true,
                             ),
-                          ],
+                          ),
                         ),
                       ),
                       const SizedBox(height: 32),

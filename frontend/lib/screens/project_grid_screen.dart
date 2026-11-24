@@ -6,11 +6,9 @@ import 'package:http/http.dart' as http;
 
 import 'project_detail_screen.dart';
 import '../widgets/project_chat_sheet.dart';
+import '../widgets/app_navigation_bar.dart';
 import '../services/auth_service.dart';
 import 'login_screen.dart';
-import 'user_dashboard_screen.dart';
-import 'profile_screen.dart';
-import 'group_management_screen.dart'; // NEU: Import für die Gruppenverwaltung
 
 class ProjectGridScreen extends StatefulWidget {
   const ProjectGridScreen({super.key});
@@ -24,6 +22,7 @@ class _ProjectGridScreenState extends State<ProjectGridScreen> {
   List<dynamic> _groups =
       []; // Wird für den "Gruppe zuweisen" Dialog im Projekt benötigt
   bool _isLoading = true;
+  bool _showArchived = false; // Steuert, ob archivierte Projekte geladen werden
 
   final String baseUrl = 'http://127.0.0.1:8000/api';
 
@@ -63,6 +62,31 @@ class _ProjectGridScreenState extends State<ProjectGridScreen> {
       }
     } catch (e) {
       if (mounted) setState(() => _isLoading = false);
+    }
+    final url = _showArchived
+        ? '$baseUrl/projects?archived=1'
+        : '$baseUrl/projects';
+  }
+
+  //archivieren
+  Future<void> _archiveProject(int id) async {
+    final headers = await AuthService.getHeaders();
+    if (!mounted) return;
+
+    final response = await http.post(
+      Uri.parse('$baseUrl/projects/$id/archive'),
+      headers: headers,
+    );
+    if (!mounted) return;
+
+    if (response.statusCode == 200) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Projekt archiviert!'),
+          backgroundColor: Colors.green,
+        ),
+      );
+      await _fetchProjects();
     }
   }
 
@@ -257,51 +281,8 @@ class _ProjectGridScreenState extends State<ProjectGridScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.grey.shade50, // Konsistenter Hintergrund
-      appBar: AppBar(
-        title: const Text(
-          'Meine Projekte',
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
-        backgroundColor: Colors.white,
-        elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.black87),
-        actions: [
-          // NEU: Zugriff auf das Group Management
-          IconButton(
-            icon: const Icon(Icons.group_outlined, color: Colors.blue),
-            tooltip: 'Gruppenverwaltung',
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => GroupManagementScreen(apiBaseUrl: baseUrl),
-                ),
-              ).then((_) => _fetchGroups());
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.dashboard_outlined),
-            tooltip: 'Dashboard',
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const UserDashboardScreen()),
-              );
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.person_outline),
-            tooltip: 'Mein Profil',
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const ProfileScreen()),
-              );
-            },
-          ),
-          const SizedBox(width: 8),
-        ],
-      ),
+      appBar: const AppNavigationBar(currentRoute: '/home'),
+
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _showProjectDialog(),
         backgroundColor: Colors.blue,
@@ -394,6 +375,8 @@ class _ProjectGridScreenState extends State<ProjectGridScreen> {
                                           _showProjectDialog(project: project);
                                         } else if (value == 'delete') {
                                           _deleteProject(project['id']);
+                                        } else if (value == 'archive') {
+                                          _archiveProject(project['id']);
                                         } else if (value == 'comments') {
                                           showModalBottomSheet(
                                             context: context,
@@ -439,6 +422,20 @@ class _ProjectGridScreenState extends State<ProjectGridScreen> {
                                               ),
                                               SizedBox(width: 8),
                                               Text('Bearbeiten'),
+                                            ],
+                                          ),
+                                        ),
+                                        const PopupMenuItem<String>(
+                                          value: 'archive',
+                                          child: Row(
+                                            children: [
+                                              Icon(
+                                                Icons.archive,
+                                                size: 18,
+                                                color: Colors.orange,
+                                              ),
+                                              SizedBox(width: 8),
+                                              Text('Archivieren'),
                                             ],
                                           ),
                                         ),

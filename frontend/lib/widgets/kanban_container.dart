@@ -231,7 +231,7 @@ class KanbanContainerWidget extends StatelessWidget {
                                     Container(height: 4, color: Colors.blue),
                                   LongPressDraggable<Map<String, dynamic>>(
                                     data: task,
-                                    delay: const Duration(milliseconds: 200),
+                                    delay: const Duration(milliseconds: 150),
                                     feedback: Material(
                                       elevation: 6,
                                       color: Colors.transparent,

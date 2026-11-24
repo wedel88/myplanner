@@ -14,13 +14,15 @@ class ProjectController extends Controller
     public function index()
     {
         $user = auth()->user();
-
-        $projects = Project::where('user_id', $user->id)
-            ->orWhereHas('group', function ($query) use ($user) {
-                $query->whereHas('users', function ($subQuery) use ($user) {
-                    $subQuery->where('users.id', $user->id);
+        $projects = Project::where(function ($query) use ($user) {
+            $query->where('user_id', $user->id)
+                ->orWhereHas('group', function ($q) use ($user) {
+                    $q->whereHas('users', function ($subQuery) use ($user) {
+                        $subQuery->where('users.id', $user->id);
+                    });
                 });
-            })
+        })
+            ->where('is_archived', false) // <-- NEU
             ->with('group')
             ->get();
 
@@ -48,6 +50,7 @@ class ProjectController extends Controller
     }
     public function getContainersWithTasks(Project $project)
     {
+        // Wir laden Container und Tasks
         $containers = $project->containers()
             ->orderBy('position')
             ->with([
@@ -59,8 +62,18 @@ class ProjectController extends Controller
             ])
             ->get();
 
+        // DER TRICK: Wir zwingen Laravel, die Felder is_ready und force_status 
+        // in das JSON zu packen, egal was passiert.
+        $containers->each(function ($container) {
+            $container->makeVisible(['force_status']);
+            $container->tasks->each(function ($task) {
+                $task->makeVisible(['is_ready']);
+            });
+        });
+
         return response()->json($containers, 200);
     }
+
     // Ein bestehendes Projekt aktualisieren (Bearbeiten)
     public function update(Request $request, Project $project)
     {
@@ -242,5 +255,35 @@ class ProjectController extends Controller
         $attachment->delete();
 
         return response()->json(['message' => 'Datei erfolgreich gelöscht'], 200);
+    }
+    // Liefert alle archivierten Projekte des Users
+    public function archived(Request $request)
+    {
+        $user = auth()->user();
+        $projects = Project::where(function ($query) use ($user) {
+            $query->where('user_id', $user->id)
+                ->orWhereHas('group', function ($q) use ($user) {
+                    $q->whereHas('users', function ($subQuery) use ($user) {
+                        $subQuery->where('users.id', $user->id);
+                    });
+                });
+        })
+            ->where('is_archived', true)
+            ->with('group')
+            ->get();
+
+        return response()->json($projects, 200);
+    }
+
+    // Archiviert ein Projekt
+    public function archive(Project $project)
+    {
+        // Optional: Prüfen, ob der User das Projekt besitzt
+        if ($project->user_id !== auth()->id()) {
+            return response()->json(['message' => 'Nur der Ersteller kann das Projekt archivieren.'], 403);
+        }
+
+        $project->update(['is_archived' => true]);
+        return response()->json(['message' => 'Projekt erfolgreich archiviert.']);
     }
 }

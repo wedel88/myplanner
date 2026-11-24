@@ -107,7 +107,7 @@ class _ChatSheetState extends State<ChatSheet> {
 
     try {
       final headers = await AuthService.getHeaders();
-      headers.remove('Content-Type'); // Wichtig für Multipart!
+      headers.remove('Content-Type');
 
       var request = http.MultipartRequest(
         'POST',
@@ -226,72 +226,68 @@ class _ChatSheetState extends State<ChatSheet> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: widget.isEmbedded
-          ? null
-          : MediaQuery.of(context).size.height * 0.7,
-      padding: widget.isEmbedded ? EdgeInsets.zero : const EdgeInsets.all(16),
-      child: Column(
-        mainAxisSize: widget.isEmbedded ? MainAxisSize.min : MainAxisSize.max,
-        children: [
-          if (!widget.isEmbedded) ...[
-            Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Colors.grey.shade300,
-                borderRadius: BorderRadius.circular(2),
-              ),
+    // Das Grundgerüst: Flexibel, damit es sich an die Umgebung anpasst
+    return Column(
+      children: [
+        // 1. Header (nur im Nicht-Embedded-Modus, also als BottomSheet)
+        if (!widget.isEmbedded) ...[
+          Container(
+            width: 40,
+            height: 4,
+            margin: const EdgeInsets.only(top: 12, bottom: 16),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade300,
+              borderRadius: BorderRadius.circular(2),
             ),
-            const SizedBox(height: 16),
-            Text(
-              'Chat: ${widget.targetName}',
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const Divider(),
-          ],
-          widget.isEmbedded
-              ? SizedBox(height: 250, child: _buildMessagesList())
-              : Expanded(child: _buildMessagesList()),
-          const SizedBox(height: 8),
-
-          if (_selectedFile != null)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              margin: const EdgeInsets.only(bottom: 8),
-              decoration: BoxDecoration(
-                color: Colors.blue.shade50,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.blue.shade200),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.attach_file, size: 16, color: Colors.blue),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      _selectedFile!.name,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.close, size: 16, color: Colors.red),
-                    onPressed: () => setState(() {
-                      _selectedFile = null;
-                      _selectedFileBytes = null;
-                    }),
-                  ),
-                ],
-              ),
-            ),
-
-          _buildInputRow(),
+          ),
+          Text(
+            'Chat: ${widget.targetName}',
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+          const Divider(),
         ],
-      ),
+
+        // 2. Die Nachrichtenliste (WICHTIG: Immer in Expanded packen!)
+        Expanded(child: _buildMessagesList()),
+
+        // 3. Vorschau der ausgewählten Datei (falls eine ausgewählt ist)
+        if (_selectedFile != null)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+            decoration: BoxDecoration(
+              color: Colors.blue.shade50,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.blue.shade200),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.attach_file, size: 16, color: Colors.blue),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    _selectedFile!.name,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close, size: 16, color: Colors.red),
+                  onPressed: () => setState(() {
+                    _selectedFile = null;
+                    _selectedFileBytes = null;
+                  }),
+                ),
+              ],
+            ),
+          ),
+
+        // 4. Die Eingabezeile (Ganz unten)
+        _buildInputRow(),
+      ],
     );
   }
 
@@ -310,6 +306,7 @@ class _ChatSheetState extends State<ChatSheet> {
 
     return ListView.builder(
       controller: _scrollController,
+      padding: const EdgeInsets.all(16),
       itemCount: _comments.length,
       itemBuilder: (context, index) {
         final comment = _comments[index];
@@ -348,11 +345,9 @@ class _ChatSheetState extends State<ChatSheet> {
                   CircleAvatar(
                     radius: 14,
                     backgroundColor: Colors.blueGrey.shade200,
-                    // 2. Netzwerkbild laden, wenn eine URL vorhanden ist
                     backgroundImage: avatarUrl != null
                         ? NetworkImage(avatarUrl)
                         : null,
-                    // 3. Fallback-Icon, falls kein Avatar hochgeladen wurde
                     child: avatarUrl == null
                         ? const Icon(
                             Icons.person,
@@ -425,10 +420,15 @@ class _ChatSheetState extends State<ChatSheet> {
               const SizedBox(height: 4),
               Container(
                 margin: const EdgeInsets.only(left: 32),
-                padding: const EdgeInsets.all(8),
+                padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
                   color: Colors.grey.shade100,
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(2),
+                    topRight: Radius.circular(12),
+                    bottomLeft: Radius.circular(12),
+                    bottomRight: Radius.circular(12),
+                  ),
                 ),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -448,7 +448,7 @@ class _ChatSheetState extends State<ChatSheet> {
 
                       ...attachmentsList.map((att) {
                         return Padding(
-                          padding: const EdgeInsets.only(top: 2.0),
+                          padding: const EdgeInsets.only(top: 4.0),
                           child: InkWell(
                             onTap: () {
                               final fileUrl =
@@ -457,8 +457,8 @@ class _ChatSheetState extends State<ChatSheet> {
                             },
                             child: Container(
                               padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 4,
+                                horizontal: 10,
+                                vertical: 6,
                               ),
                               decoration: BoxDecoration(
                                 color: Colors.white,
@@ -503,46 +503,63 @@ class _ChatSheetState extends State<ChatSheet> {
   }
 
   Widget _buildInputRow() {
-    return Row(
-      children: [
-        IconButton(
-          icon: const Icon(Icons.attach_file, color: Colors.grey),
-          tooltip: 'Datei anfügen',
-          onPressed: _pickChatFile,
-        ),
-        Expanded(
-          child: TextField(
-            controller: _commentController,
-            focusNode: _focusNode,
-            decoration: InputDecoration(
-              hintText: 'Nachricht schreiben...',
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(24),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: widget.isEmbedded
+            ? Border(top: BorderSide(color: Colors.grey.shade200))
+            : null,
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          IconButton(
+            icon: const Icon(Icons.attach_file, color: Colors.grey),
+            tooltip: 'Datei anfügen',
+            onPressed: _pickChatFile,
+          ),
+          Expanded(
+            child: TextField(
+              controller: _commentController,
+              focusNode: _focusNode,
+              maxLines: null, // Erlaubt mehrzeiliges Schreiben
+              decoration: InputDecoration(
+                hintText: 'Nachricht schreiben...',
+                filled: true,
+                fillColor: Colors.grey.shade100,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(24),
+                  borderSide: BorderSide.none,
+                ),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
+                isDense: true,
               ),
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 10,
-              ),
-              isDense: true,
+              textInputAction: TextInputAction.send,
+              onSubmitted: (_) async {
+                await _sendComment();
+                _focusNode.requestFocus();
+              },
             ),
-            textInputAction: TextInputAction.send,
-            onSubmitted: (_) async {
+          ),
+          const SizedBox(width: 8),
+          FloatingActionButton(
+            mini: true,
+            elevation: 0,
+            backgroundColor: Colors.blue,
+            foregroundColor: Colors.white,
+            onPressed: () async {
               await _sendComment();
               _focusNode.requestFocus();
             },
+            child: const Icon(Icons.send, size: 18),
           ),
-        ),
-        const SizedBox(width: 8),
-        FloatingActionButton(
-          mini: true,
-          elevation: 0,
-          onPressed: () async {
-            await _sendComment();
-            _focusNode.requestFocus();
-          },
-          child: const Icon(Icons.send, size: 18),
-        ),
-      ],
+          const SizedBox(width: 4),
+        ],
+      ),
     );
   }
 }

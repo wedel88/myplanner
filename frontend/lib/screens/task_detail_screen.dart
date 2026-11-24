@@ -11,6 +11,8 @@ import 'package:web/web.dart' as web;
 import '../main.dart';
 import '../widgets/project_chat_sheet.dart';
 import '../services/auth_service.dart';
+import '../widgets/inline_editable_text.dart';
+import '../widgets/app_navigation_bar.dart';
 
 class TaskDetailScreen extends StatefulWidget {
   final Map<String, dynamic> task;
@@ -30,32 +32,26 @@ class TaskDetailScreen extends StatefulWidget {
 
 class _TaskDetailScreenState extends State<TaskDetailScreen> {
   late Map<String, dynamic> _task;
-  bool _isEditing = false;
   bool _isSaving = false;
   List<dynamic> _projectUsers = [];
-  int? _selectedUserId;
 
-  // Controller für die Textfelder
-  late TextEditingController _titleController;
-  late TextEditingController _descController;
-  late TextEditingController _newSubtaskController;
-
-  // Lokale Variablen für Dropdowns und Datumswahl
+  // Variablen für Dropdowns und Daten
   String _selectedStatus = 'open';
   DateTime? _selectedDueDate;
   DateTime? _selectedStartDate;
   DateTime? _selectedEndDate;
+  int? _selectedUserId;
+
+  late TextEditingController _newSubtaskController;
 
   @override
   void initState() {
     super.initState();
     _task = Map.from(widget.task);
-
-    _titleController = TextEditingController(text: _task['title'] ?? '');
-    _descController = TextEditingController(text: _task['description'] ?? '');
     _newSubtaskController = TextEditingController();
-    _selectedStatus = _task['status'] ?? 'open';
 
+    _selectedStatus = _task['status'] ?? 'open';
+    _selectedUserId = _task['assigned_user_id'];
     _selectedDueDate = _task['due_at'] != null
         ? DateTime.tryParse(_task['due_at'])
         : null;
@@ -65,7 +61,6 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     _selectedEndDate = _task['planned_end_at'] != null
         ? DateTime.tryParse(_task['planned_end_at'])
         : null;
-    _selectedUserId = _task['assigned_user_id'];
 
     _fetchProjectUsers();
     _fetchTaskDetails();
@@ -73,8 +68,6 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
 
   @override
   void dispose() {
-    _titleController.dispose();
-    _descController.dispose();
     _newSubtaskController.dispose();
     super.dispose();
   }
@@ -82,7 +75,6 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
   Future<void> _fetchProjectUsers() async {
     final headers = await AuthService.getHeaders();
     final int? projectId = widget.projectId;
-
     final String url = projectId != null
         ? '$apiBaseUrl/projects/$projectId/users'
         : '$apiBaseUrl/users';
@@ -97,6 +89,65 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       }
     } catch (e) {
       debugPrint('Fehler beim Laden der User: $e');
+    }
+  }
+
+  Future<void> _fetchTaskDetails() async {
+    final url = Uri.parse('$apiBaseUrl/tasks/${widget.task['id']}');
+    try {
+      final headers = await AuthService.getHeaders();
+      final response = await http.get(url, headers: headers);
+      if (!mounted) return;
+      if (response.statusCode == 200) {
+        setState(() {
+          _task = jsonDecode(response.body);
+          _selectedStatus = _task['status'] ?? 'open';
+          _selectedUserId = _task['assigned_user_id'];
+        });
+      }
+    } catch (e) {
+      debugPrint('Fehler beim Laden der Task: $e');
+    }
+  }
+
+  // Speichert ein einzelnes Feld der Task im Backend
+  Future<void> _saveField(String field, dynamic value) async {
+    setState(() => _isSaving = true);
+    final url = Uri.parse('$apiBaseUrl/tasks/${_task['id']}');
+    final headers = await AuthService.getHeaders();
+
+    try {
+      final response = await http.put(
+        url,
+        headers: headers,
+        body: jsonEncode({field: value}),
+      );
+
+      if (!mounted) return;
+
+      if (response.statusCode == 200) {
+        setState(() {
+          _task[field] = value;
+        });
+        widget.onTaskUpdated(); // Board im Hintergrund informieren
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Fehler beim Speichern: ${response.statusCode}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Verbindungsfehler: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
     }
   }
 
@@ -121,12 +172,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       if (response.statusCode == 200 || response.statusCode == 201) {
         _newSubtaskController.clear();
         await _fetchTaskDetails();
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Fehler beim Hinzufügen: ${response.statusCode}'),
-          ),
-        );
+        widget.onTaskUpdated();
       }
     } catch (e) {
       debugPrint('Verbindungsfehler: $e');
@@ -145,71 +191,28 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
           (_task['subtasks'] as List).removeWhere((s) => s['id'] == subtaskId);
         });
         widget.onTaskUpdated();
-        ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('Teilpunkt gelöscht')));
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Fehler beim Löschen: ${response.statusCode}'),
-          ),
-        );
       }
     } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Verbindungsfehler: $e')));
+      debugPrint('Fehler beim Löschen: $e');
     }
   }
 
-  Future<void> _saveChanges() async {
-    setState(() => _isSaving = true);
-    final url = Uri.parse('$apiBaseUrl/tasks/${_task['id']}');
-    final headers = await AuthService.getHeaders();
-
+  Future<void> _toggleSubtask(int subtaskId, bool currentStatus) async {
+    final url = Uri.parse('$apiBaseUrl/subtasks/$subtaskId');
     try {
+      final headers = await AuthService.getHeaders();
       final response = await http.put(
         url,
         headers: headers,
-        body: jsonEncode({
-          'title': _titleController.text.trim(),
-          'description': _descController.text.trim(),
-          'status': _selectedStatus,
-          'due_at': _selectedDueDate?.toIso8601String(),
-          'planned_start_at': _selectedStartDate?.toIso8601String(),
-          'planned_end_at': _selectedEndDate?.toIso8601String(),
-          'assigned_user_id': _selectedUserId,
-        }),
+        body: jsonEncode({'is_completed': !currentStatus}),
       );
-
       if (!mounted) return;
       if (response.statusCode == 200 || response.statusCode == 204) {
-        setState(() {
-          _task['title'] = _titleController.text.trim();
-          _task['description'] = _descController.text.trim();
-          _task['status'] = _selectedStatus;
-          _task['due_at'] = _selectedDueDate?.toIso8601String();
-          _task['planned_start_at'] = _selectedStartDate?.toIso8601String();
-          _task['planned_end_at'] = _selectedEndDate?.toIso8601String();
-          _isEditing = false;
-          _isSaving = false;
-        });
+        await _fetchTaskDetails();
         widget.onTaskUpdated();
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Erfolgreich gespeichert!')),
-        );
-      } else {
-        setState(() => _isSaving = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Fehler beim Speichern: ${response.statusCode}'),
-          ),
-        );
       }
     } catch (e) {
-      if (!mounted) return;
-      setState(() => _isSaving = false);
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Verbindungsfehler: $e')));
+      debugPrint('Verbindungsfehler: $e');
     }
   }
 
@@ -217,7 +220,6 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     FilePickerResult? result = await FilePicker.platform.pickFiles(
       withData: true,
     );
-
     if (result != null && result.files.single.bytes != null) {
       Uint8List fileBytes = result.files.single.bytes!;
       String fileName = result.files.single.name;
@@ -245,36 +247,11 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
             if (_task['attachments'] == null) _task['attachments'] = [];
             (_task['attachments'] as List).add(newAttachment);
           });
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Datei "$fileName" hochgeladen!'),
-                backgroundColor: Colors.green,
-              ),
-            );
-          }
+          widget.onTaskUpdated();
         }
       } catch (e) {
         debugPrint('Fehler beim Dateiupload: $e');
       }
-    }
-  }
-
-  Future<void> _fetchTaskDetails() async {
-    final url = Uri.parse('$apiBaseUrl/tasks/${widget.task['id']}');
-    try {
-      final headers = await AuthService.getHeaders();
-      final response = await http.get(url, headers: headers);
-      if (!mounted) return;
-      if (response.statusCode == 200) {
-        setState(() {
-          _task = jsonDecode(response.body);
-          _selectedStatus = _task['status'] ?? 'open';
-          _selectedUserId = _task['assigned_to_id'];
-        });
-      }
-    } catch (e) {
-      debugPrint('Fehler beim Laden der Task: $e');
     }
   }
 
@@ -283,24 +260,6 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     final date = DateTime.tryParse(dateString);
     if (date == null) return 'Ungültiges Datum';
     return "${date.day.toString().padLeft(2, '0')}.${date.month.toString().padLeft(2, '0')}.${date.year}";
-  }
-
-  Future<void> _toggleSubtask(int subtaskId, bool currentStatus) async {
-    final url = Uri.parse('$apiBaseUrl/subtasks/$subtaskId');
-    try {
-      final headers = await AuthService.getHeaders();
-      final response = await http.put(
-        url,
-        headers: headers,
-        body: jsonEncode({'is_completed': !currentStatus}),
-      );
-      if (!mounted) return;
-      if (response.statusCode == 200 || response.statusCode == 204) {
-        await _fetchTaskDetails();
-      }
-    } catch (e) {
-      debugPrint('Verbindungsfehler: $e');
-    }
   }
 
   // --- DESIGN BAUSTEINE ---
@@ -314,41 +273,6 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
           fontWeight: FontWeight.bold,
           fontSize: 16,
           color: Colors.black87,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildStyledTextField({
-    required TextEditingController controller,
-    required String label,
-    int maxLines = 1,
-    String? hint,
-  }) {
-    return TextField(
-      controller: controller,
-      maxLines: maxLines,
-      style: const TextStyle(fontSize: 15),
-      decoration: InputDecoration(
-        labelText: label,
-        hintText: hint,
-        filled: true,
-        fillColor: Colors.grey.withOpacity(0.04),
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 14,
-        ),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.grey.shade300),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.grey.shade300),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Colors.blue, width: 1.5),
         ),
       ),
     );
@@ -417,7 +341,17 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                 firstDate: DateTime(2020),
                 lastDate: DateTime(2100),
               );
-              if (picked != null) onDateChanged(picked);
+              if (picked != null) {
+                onDateChanged(picked);
+                _saveField(
+                  label == 'Geplanter Start'
+                      ? 'planned_start_at'
+                      : (label == 'Geplantes Ende'
+                            ? 'planned_end_at'
+                            : 'due_at'),
+                  picked.toIso8601String(),
+                );
+              }
             },
             borderRadius: BorderRadius.circular(8),
             child: Container(
@@ -454,6 +388,123 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     );
   }
 
+  Widget _buildStatusChip() {
+    Color color;
+    String label;
+    switch (_selectedStatus) {
+      case 'in_progress':
+        color = Colors.orange;
+        label = 'In Bearbeitung';
+        break;
+      case 'completed':
+        color = Colors.green;
+        label = 'Erledigt';
+        break;
+      case 'closed_incomplete':
+        color = Colors.red;
+        label = 'Unvollständig';
+        break;
+      default:
+        color = Colors.blue;
+        label = 'Offen';
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: color.withOpacity(0.3)),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          value: _selectedStatus,
+          isDense: true,
+          icon: Icon(Icons.arrow_drop_down, color: color),
+          style: TextStyle(
+            color: color,
+            fontWeight: FontWeight.bold,
+            fontSize: 13,
+          ),
+          items: const [
+            DropdownMenuItem(value: 'open', child: Text('Offen')),
+            DropdownMenuItem(
+              value: 'in_progress',
+              child: Text('In Bearbeitung'),
+            ),
+            DropdownMenuItem(value: 'completed', child: Text('Erledigt')),
+            DropdownMenuItem(
+              value: 'closed_incomplete',
+              child: Text('Unvollständig'),
+            ),
+          ],
+          onChanged: (val) {
+            if (val != null) {
+              setState(() => _selectedStatus = val);
+              _saveField('status', val);
+            }
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAssigneeChip() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.grey.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<int?>(
+          value: _projectUsers.any((u) => u['id'] == _selectedUserId)
+              ? _selectedUserId
+              : null,
+          isDense: true,
+          icon: const Icon(
+            Icons.arrow_drop_down,
+            size: 18,
+            color: Colors.black54,
+          ),
+          style: const TextStyle(
+            fontWeight: FontWeight.w600,
+            fontSize: 13,
+            color: Colors.black87,
+          ),
+          items: [
+            const DropdownMenuItem<int?>(
+              value: null,
+              child: Row(
+                children: [
+                  Icon(Icons.person_off, size: 16, color: Colors.grey),
+                  SizedBox(width: 6),
+                  Text('Niemand'),
+                ],
+              ),
+            ),
+            ..._projectUsers.map(
+              (user) => DropdownMenuItem<int?>(
+                value: user['id'],
+                child: Row(
+                  children: [
+                    const Icon(Icons.person, size: 16, color: Colors.blue),
+                    const SizedBox(width: 6),
+                    Text(user['name'] ?? 'User'),
+                  ],
+                ),
+              ),
+            ),
+          ],
+          onChanged: (val) {
+            setState(() => _selectedUserId = val);
+            _saveField('assigned_user_id', val);
+          },
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final bool isDesktop = MediaQuery.of(context).size.width > 800;
@@ -463,59 +514,10 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
         if (didPop) widget.onTaskUpdated();
       },
       child: Scaffold(
-        backgroundColor: Colors.grey.shade50, // Leichter Hintergrund
-        appBar: AppBar(
-          title: const Text(
-            'Task Details',
-            style: TextStyle(fontWeight: FontWeight.bold),
-          ),
-          backgroundColor: Colors.white,
-          elevation: 0,
-          iconTheme: const IconThemeData(color: Colors.black87),
-          actions: [
-            IconButton(
-              icon: const Icon(Icons.forum, color: Colors.blue),
-              tooltip: 'Kommentare',
-              onPressed: () {
-                showModalBottomSheet(
-                  context: context,
-                  isScrollControlled: true,
-                  shape: const RoundedRectangleBorder(
-                    borderRadius: BorderRadius.vertical(
-                      top: Radius.circular(20),
-                    ),
-                  ),
-                  builder: (_) => ChatSheet(
-                    targetId: _task['id'],
-                    targetType: 'Task',
-                    targetName: _task['title'] ?? 'Aufgabe',
-                  ),
-                );
-              },
-            ),
-            if (_isSaving)
-              const Padding(
-                padding: EdgeInsets.all(16.0),
-                child: SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                ),
-              )
-            else if (_isEditing)
-              IconButton(
-                icon: const Icon(Icons.save, color: Colors.green),
-                onPressed: _saveChanges,
-                tooltip: 'Speichern',
-              )
-            else
-              IconButton(
-                icon: const Icon(Icons.edit),
-                onPressed: () => setState(() => _isEditing = true),
-                tooltip: 'Bearbeiten',
-              ),
-          ],
-        ),
+        backgroundColor: Colors.grey.shade50,
+        appBar: const AppNavigationBar(
+          currentRoute: '/task',
+        ), // Einheitliche Navigation
         body: Center(
           child: ConstrainedBox(
             constraints: BoxConstraints(
@@ -527,170 +529,63 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // ==================== 1. HEADER: TITEL & STATUS ====================
-                  if (_isEditing)
-                    _buildStyledTextField(
-                      controller: _titleController,
-                      label: 'Task Titel',
-                    )
-                  else
-                    Text(
-                      _task['title'] ?? 'Kein Titel',
-                      style: Theme.of(context).textTheme.headlineSmall
-                          ?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: -0.5,
+                  Row(
+                    children: [
+                      Expanded(
+                        child: InlineEditableText(
+                          initialText: _task['title'] ?? 'Kein Titel',
+                          textStyle: Theme.of(context).textTheme.headlineSmall
+                              ?.copyWith(
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: -0.5,
+                              ),
+                          onSave: (newTitle) => _saveField('title', newTitle),
+                        ),
+                      ),
+                      if (_isSaving)
+                        const Padding(
+                          padding: EdgeInsets.only(left: 8.0),
+                          child: SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
                           ),
-                    ),
+                        ),
+                    ],
+                  ),
 
                   const SizedBox(height: 16),
 
-                  // STATUS & ZUWEISUNG
-                  LayoutBuilder(
-                    builder: (context, constraints) {
-                      final isWide = constraints.maxWidth > 500;
-                      final statusWidget = _isEditing
-                          ? DropdownButtonFormField<String>(
-                              value: _selectedStatus,
-                              decoration: InputDecoration(
-                                labelText: 'Status',
-                                filled: true,
-                                fillColor: Colors.grey.withOpacity(0.04),
-                                contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 12,
-                                ),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                  borderSide: BorderSide(
-                                    color: Colors.grey.shade300,
-                                  ),
-                                ),
-                                enabledBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                  borderSide: BorderSide(
-                                    color: Colors.grey.shade300,
-                                  ),
-                                ),
-                              ),
-                              items: const [
-                                DropdownMenuItem(
-                                  value: 'open',
-                                  child: Text('Offen'),
-                                ),
-                                DropdownMenuItem(
-                                  value: 'in_progress',
-                                  child: Text('In Bearbeitung'),
-                                ),
-                                DropdownMenuItem(
-                                  value: 'completed',
-                                  child: Text('Erledigt'),
-                                ),
-                                DropdownMenuItem(
-                                  value: 'closed_incomplete',
-                                  child: Text('Unvollständig geschlossen'),
-                                ),
-                              ],
-                              onChanged: (val) =>
-                                  setState(() => _selectedStatus = val!),
-                            )
-                          : _buildStatusChip(_task['status']);
-
-                      final userWidget = _isEditing
-                          ? DropdownButtonFormField<int?>(
-                              value:
-                                  _projectUsers.any(
-                                    (u) => u['id'] == _selectedUserId,
-                                  )
-                                  ? _selectedUserId
-                                  : null,
-                              decoration: InputDecoration(
-                                labelText: 'Zugewiesen an',
-                                filled: true,
-                                fillColor: Colors.grey.withOpacity(0.04),
-                                contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 12,
-                                ),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                  borderSide: BorderSide(
-                                    color: Colors.grey.shade300,
-                                  ),
-                                ),
-                                enabledBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                  borderSide: BorderSide(
-                                    color: Colors.grey.shade300,
-                                  ),
-                                ),
-                              ),
-                              items: [
-                                const DropdownMenuItem<int?>(
-                                  value: null,
-                                  child: Text('Niemand'),
-                                ),
-                                ..._projectUsers.map(
-                                  (user) => DropdownMenuItem<int?>(
-                                    value: user['id'],
-                                    child: Text(user['name'] ?? 'User'),
-                                  ),
-                                ),
-                              ],
-                              onChanged: (val) =>
-                                  setState(() => _selectedUserId = val),
-                            )
-                          : _buildAssigneeChip();
-
-                      if (isWide && _isEditing) {
-                        return Row(
-                          children: [
-                            Expanded(child: statusWidget),
-                            const SizedBox(width: 16),
-                            Expanded(child: userWidget),
-                          ],
-                        );
-                      } else {
-                        return Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            statusWidget,
-                            const SizedBox(height: 12),
-                            userWidget,
-                          ],
-                        );
-                      }
-                    },
+                  // STATUS & ZUWEISUNG (als interaktive Chips)
+                  Wrap(
+                    spacing: 12,
+                    runSpacing: 12,
+                    children: [_buildStatusChip(), _buildAssigneeChip()],
                   ),
 
                   const Divider(height: 40, color: Colors.transparent),
 
                   // ==================== 2. BESCHREIBUNG ====================
                   _buildSectionTitle('Beschreibung'),
-                  _isEditing
-                      ? _buildStyledTextField(
-                          controller: _descController,
-                          label: 'Beschreibung',
-                          maxLines: 5,
-                          hint: 'Beschreibung eingeben...',
-                        )
-                      : Container(
-                          padding: const EdgeInsets.all(16),
-                          width: double.infinity,
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: Colors.grey.shade200),
-                          ),
-                          child: Text(
-                            _task['description'] ??
-                                'Keine Beschreibung vorhanden.',
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: Colors.grey.shade800,
-                              height: 1.5,
-                            ),
-                          ),
-                        ),
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.grey.shade200),
+                    ),
+                    child: InlineEditableText(
+                      initialText: _task['description'] ?? 'Keine Beschreibung vorhanden. (Doppelklicken zum Bearbeiten)',
+                      textStyle: TextStyle(
+                        fontSize: 14,
+                        color: Colors.grey.shade800,
+                        height: 1.5,
+                      ),
+                      maxLines: 5,
+                      onSave: (newDesc) => _saveField('description', newDesc),
+                    ),
+                  ),
 
                   const Divider(height: 40, color: Colors.transparent),
 
@@ -711,48 +606,26 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                           _formatDate(_task['created_at']),
                         ),
                         const Divider(height: 20),
-                        if (_isEditing)
-                          _buildEditableDateRow(
-                            'Geplanter Start',
-                            _selectedStartDate,
-                            (newDate) =>
-                                setState(() => _selectedStartDate = newDate),
-                          )
-                        else
-                          _buildInfoRow(
-                            Icons.play_arrow,
-                            'Geplanter Start',
-                            _formatDate(_task['planned_start_at']),
-                          ),
+                        _buildEditableDateRow(
+                          'Geplanter Start',
+                          _selectedStartDate,
+                          (newDate) =>
+                              setState(() => _selectedStartDate = newDate),
+                        ),
                         const Divider(height: 20),
-                        if (_isEditing)
-                          _buildEditableDateRow(
-                            'Geplantes Ende',
-                            _selectedEndDate,
-                            (newDate) =>
-                                setState(() => _selectedEndDate = newDate),
-                          )
-                        else
-                          _buildInfoRow(
-                            Icons.flag,
-                            'Geplantes Ende',
-                            _formatDate(_task['planned_end_at']),
-                          ),
+                        _buildEditableDateRow(
+                          'Geplantes Ende',
+                          _selectedEndDate,
+                          (newDate) =>
+                              setState(() => _selectedEndDate = newDate),
+                        ),
                         const Divider(height: 20),
-                        if (_isEditing)
-                          _buildEditableDateRow(
-                            'Ablaufdatum (Due)',
-                            _selectedDueDate,
-                            (newDate) =>
-                                setState(() => _selectedDueDate = newDate),
-                          )
-                        else
-                          _buildInfoRow(
-                            Icons.warning_amber_rounded,
-                            'Ablaufdatum (Due)',
-                            _formatDate(_task['due_at']),
-                            isWarning: true,
-                          ),
+                        _buildEditableDateRow(
+                          'Ablaufdatum (Due)',
+                          _selectedDueDate,
+                          (newDate) =>
+                              setState(() => _selectedDueDate = newDate),
+                        ),
                       ],
                     ),
                   ),
@@ -990,81 +863,6 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
             ),
           ),
         ),
-      ),
-    );
-  }
-
-  // --- HELPER WIDGETS FÜR BADGES ---
-
-  Widget _buildStatusChip(String? status) {
-    String label = 'Offen';
-    Color color = Colors.blue;
-    if (status == 'in_progress') {
-      label = 'In Bearbeitung';
-      color = Colors.orange;
-    } else if (status == 'completed') {
-      label = 'Erledigt';
-      color = Colors.green;
-    } else if (status == 'closed_incomplete') {
-      label = 'Unvollständig';
-      color = Colors.red;
-    }
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withOpacity(0.3)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 8,
-            height: 8,
-            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-          ),
-          const SizedBox(width: 8),
-          Text(
-            label,
-            style: TextStyle(
-              color: color,
-              fontWeight: FontWeight.bold,
-              fontSize: 13,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildAssigneeChip() {
-    String name = 'Niemand zugewiesen';
-    if (_selectedUserId != null) {
-      final user = _projectUsers.firstWhere(
-        (u) => u['id'] == _selectedUserId,
-        orElse: () => null,
-      );
-      if (user != null) name = user['name'];
-    }
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-      decoration: BoxDecoration(
-        color: Colors.grey.withOpacity(0.08),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.person, size: 16, color: Colors.black54),
-          const SizedBox(width: 6),
-          Text(
-            name,
-            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
-          ),
-        ],
       ),
     );
   }

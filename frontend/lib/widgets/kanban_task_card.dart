@@ -47,7 +47,11 @@ class _KanbanTaskCardState extends State<KanbanTaskCard> {
     final status = task['status']?.toString() ?? 'open';
     final dueAt = task['due_at']?.toString();
     final subtasks = (task['subtasks'] as List<dynamic>?) ?? [];
-    final isReady = task['is_ready'] == true; // NEU
+    // Wandelt 1, "1", true alles in einen echten bool um
+    final bool isReady =
+        task['is_ready'] == true ||
+        task['is_ready'] == 1 ||
+        task['is_ready'] == "1";
 
     Color statusColor;
     String statusLabel;

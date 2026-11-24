@@ -51,9 +51,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/projects/{project}/containers', [ProjectController::class, 'getContainersWithTasks']);
     Route::post('/projects/{project}/containers', [ContainerController::class, 'store']);
     Route::post('/projects/reorder', [ProjectController::class, 'reorder']);
-
     Route::post('/projects/{project}/members', [ProjectController::class, 'addMember']);
     Route::get('/projects/{project}/users', [ProjectController::class, 'users']);
+    Route::get('/projects/archived/list', [ProjectController::class, 'archived']); // Wichtig: vor apiResource oder als eigene Route
+    Route::post('/projects/{project}/archive', [ProjectController::class, 'archive']);
+
     // Container (Spalten)
     Route::apiResource('containers', ContainerController::class);
     Route::put('/containers/{container}/position', [ContainerController::class, 'updatePosition']);

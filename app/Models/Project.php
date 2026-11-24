@@ -15,6 +15,7 @@ class Project extends Model
         'sort_order',
         'group_id',
         'user_id',
+        'is_archived',
     ];
 
     // Der Besitzer (Ersteller) des Projekts

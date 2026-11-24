@@ -4,21 +4,45 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Task;
-use Illuminate\Http\Request;
 use App\Models\Container;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 
 class TaskController extends Controller
 {
-    // Alle Aufgaben abrufen (optional nach Container filtern)
+    // Hilfsmethode: Prüft, ob der User Zugriff auf das Projekt der Task hat
+    private function hasProjectAccess($projectId)
+    {
+        $user = Auth::user();
+        if (!$user)
+            return false;
+
+        return \App\Models\Project::where('id', $projectId)
+            ->where(function ($query) use ($user) {
+                $query->where('user_id', $user->id)
+                    ->orWhereHas('users', function ($q) use ($user) {
+                        $q->where('users.id', $user->id);
+                    });
+            })->exists();
+    }
+
+    // Hilfsmethode: Holt die Projekt-ID über die Container-ID
+    private function getProjectIdFromContainer($containerId)
+    {
+        $container = Container::find($containerId);
+        return $container ? $container->project_id : null;
+    }
+
+    // Alle Aufgaben abrufen
     public function index(Request $request)
     {
-        // 1. Vor dem Laden: Prüfe alle Tasks, die abgelaufen sind und noch nicht geschlossen wurden
+        // 1. Abgelaufene Tasks prüfen (unverändert)
         Task::whereNotNull('due_at')
             ->where('due_at', '<', now())
             ->whereNotIn('status', ['completed', 'closed_incomplete'])
             ->update(['status' => 'closed_incomplete']);
 
-        // 2. Jetzt laden wir die (aktualisierten) Tasks
+        // 2. Tasks laden
         $query = Task::query();
         if ($request->has('container_id')) {
             $query->where('container_id', $request->container_id);
@@ -35,10 +59,30 @@ class TaskController extends Controller
             'title' => 'required|string|max:255',
             'description' => 'nullable|string',
             'status' => 'nullable|in:open,in_progress,completed,closed_incomplete',
-            'planned_start_at' => 'nullable|date', // <-- NEU
-            'planned_end_at' => 'nullable|date',   // <-- NEU
+            'is_ready' => 'sometimes|boolean',
+            'planned_start_at' => 'nullable|date',
+            'planned_end_at' => 'nullable|date',
             'due_at' => 'nullable|date',
+            'assigned_user_id' => 'nullable|exists:users,id', // NEU: Zuweisung erlauben
         ]);
+
+        // SICHERHEIT: Darf der User in dieses Projekt schreiben?
+        $projectId = $this->getProjectIdFromContainer($validated['container_id']);
+        if (!$projectId || !$this->hasProjectAccess($projectId)) {
+            return response()->json(['message' => 'Kein Zugriff auf dieses Projekt.'], 403);
+        }
+
+        // Force-Status der Spalte anwenden
+        $container = Container::find($validated['container_id']);
+        if ($container && $container->force_status) {
+            $validated['status'] = $container->force_status;
+        } else if (!isset($validated['status'])) {
+            $validated['status'] = 'open';
+        }
+
+        if (!isset($validated['is_ready'])) {
+            $validated['is_ready'] = false;
+        }
 
         $task = Task::create($validated);
 
@@ -48,22 +92,35 @@ class TaskController extends Controller
         ], 201);
     }
 
-    // Eine einzelne Aufgabe anzeigen (inklusive Subtasks und Kommentaren)
+    // Eine einzelne Aufgabe anzeigen
     public function show(Task $task)
     {
+        // SICHERHEIT: Prüfen, ob User Zugriff auf das Projekt hat
+        $projectId = $task->container->project_id;
+        if (!$this->hasProjectAccess($projectId)) {
+            return response()->json(['message' => 'Kein Zugriff auf diese Aufgabe.'], 403);
+        }
+
         return response()->json($task->load('subtasks', 'comments', 'attachments'), 200);
     }
 
-    // Eine Aufgabe aktualisieren (z.B. Status ändern oder Verschieben in andere Spalte)
+    // Eine Aufgabe aktualisieren (z.B. Häkchen setzen)
     public function update(Request $request, Task $task)
     {
+        // SICHERHEIT: Prüfen, ob User Zugriff auf das Projekt hat
+        $projectId = $task->container->project_id;
+        if (!$this->hasProjectAccess($projectId)) {
+            return response()->json(['message' => 'Kein Zugriff auf diese Aufgabe.'], 403);
+        }
+
         $validated = $request->validate([
             'container_id' => 'sometimes|exists:containers,id',
             'title' => 'sometimes|required|string|max:255',
             'description' => 'nullable|string',
             'status' => 'sometimes|in:open,in_progress,completed,closed_incomplete',
-            'planned_start_at' => 'nullable|date', // <-- NEU
-            'planned_end_at' => 'nullable|date',   // <-- NEU
+            'is_ready' => 'sometimes|boolean',
+            'planned_start_at' => 'nullable|date',
+            'planned_end_at' => 'nullable|date',
             'due_at' => 'nullable|date',
             'assigned_user_id' => 'nullable|exists:users,id',
         ]);
@@ -72,19 +129,32 @@ class TaskController extends Controller
 
         return response()->json([
             'message' => 'Aufgabe aktualisiert',
-            'data' => $task->load('subtasks'),
-            $task->load('assignedUser')
+            'data' => $task->load('subtasks')
         ], 200);
     }
 
     // Eine Aufgabe löschen
     public function destroy(Task $task)
     {
+        // SICHERHEIT: Prüfen, ob User Zugriff auf das Projekt hat
+        $projectId = $task->container->project_id;
+        if (!$this->hasProjectAccess($projectId)) {
+            return response()->json(['message' => 'Kein Zugriff auf diese Aufgabe.'], 403);
+        }
+
         $task->delete();
         return response()->json(['message' => 'Aufgabe gelöscht'], 200);
     }
+
+    // Task verschieben (mit Force-Status und Reset des Häkchens)
     public function move(Request $request, Task $task)
     {
+        // SICHERHEIT: Prüfen, ob User Zugriff auf das Projekt hat
+        $projectId = $task->container->project_id;
+        if (!$this->hasProjectAccess($projectId)) {
+            return response()->json(['message' => 'Kein Zugriff auf diese Aufgabe.'], 403);
+        }
+
         $request->validate([
             'container_id' => 'required|exists:containers,id',
             'position' => 'nullable|integer',
@@ -93,7 +163,6 @@ class TaskController extends Controller
         $targetContainerId = $request->container_id;
         $newPosition = $request->position ?? 0;
 
-        // NEU: Prüfen, ob die Ziel-Spalte einen Force-Status hat
         $targetContainer = Container::find($targetContainerId);
         $newStatus = $task->status;
 
@@ -105,22 +174,14 @@ class TaskController extends Controller
             'container_id' => $targetContainerId,
             'position' => $newPosition,
             'status' => $newStatus,
+            'is_ready' => false, // WICHTIG: Häkchen zurücksetzen
         ]);
 
-        return response()->json(['message' => 'Task verschoben', 'new_status' => $newStatus]);
-    }
-    // In TaskController.php hinzufügen:
-    public function reorder(Request $request, Task $task)
-    {
-        $validated = $request->validate([
-            'container_id' => 'required|exists:containers,id',
-            'position' => 'required|integer',
+        // NEU: is_ready in die Antwort packen, damit das Frontend es sofort weiß
+        return response()->json([
+            'message' => 'Task verschoben',
+            'new_status' => $newStatus,
+            'is_ready' => false
         ]);
-
-        $task->container_id = $validated['container_id'];
-        $task->position = $validated['position'];
-        $task->save();
-
-        return response()->json(['message' => 'Task Position gespeichert']);
     }
 }

@@ -6,8 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 
 import '../services/auth_service.dart';
-import 'project_grid_screen.dart';
-import 'user_dashboard_screen.dart';
+import '../widgets/app_navigation_bar.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({Key? key}) : super(key: key);
@@ -310,43 +309,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     return Scaffold(
       backgroundColor: Colors.grey.shade50,
-      appBar: AppBar(
-        title: const Text(
-          'Mein Profil',
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
-        backgroundColor: Colors.white,
-        elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.black87),
-        actions: [
-          IconButton(
-            tooltip: 'Projekte (Home)',
-            icon: const Icon(Icons.grid_view_rounded, color: Colors.black87),
-            onPressed: () => Navigator.pushAndRemoveUntil(
-              context,
-              MaterialPageRoute(builder: (_) => const ProjectGridScreen()),
-              (route) => false,
-            ),
-          ),
-          IconButton(
-            tooltip: 'Dashboard',
-            icon: const Icon(
-              Icons.dashboard_outlined,
-              color: Colors.deepOrange,
-            ),
-            onPressed: () => Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(builder: (_) => const UserDashboardScreen()),
-            ),
-          ),
-          IconButton(
-            tooltip: 'Aktualisieren',
-            icon: const Icon(Icons.refresh, color: Colors.black87),
-            onPressed: _fetchUserData,
-          ),
-          const SizedBox(width: 8),
-        ],
-      ),
+      appBar: const AppNavigationBar(currentRoute: '/profile'),
       body: Center(
         child: ConstrainedBox(
           constraints: BoxConstraints(

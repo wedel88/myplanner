@@ -7,12 +7,9 @@ import '../main.dart';
 import '../widgets/kanban_container.dart';
 import '../widgets/project_chat_sheet.dart';
 import 'task_detail_screen.dart';
-import '../services/auth_service.dart';
-import 'profile_screen.dart';
-import 'project_grid_screen.dart';
-import 'user_dashboard_screen.dart';
 import 'project_info_screen.dart';
-import 'group_management_screen.dart';
+import '../services/auth_service.dart';
+import '../widgets/app_navigation_bar.dart';
 
 class ProjectDetailScreen extends StatefulWidget {
   final int projectId;
@@ -782,12 +779,13 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
     }
   }
 
+  // 1. Task verschieben (sofort im UI, dann im Hintergrund speichern)
   Future<void> _updateTaskOrder(
     int taskId,
-    int containerId,
+    int targetContainerId,
     int newPosition,
   ) async {
-    // Wir rufen den 'move'-Endpunkt auf, damit der Status aktualisiert wird
+    // Wir rufen jetzt IMMER die 'move'-Route auf, egal ob die Spalte gleich bleibt oder nicht
     final url = Uri.parse('$apiBaseUrl/tasks/$taskId/move');
     final headers = await AuthService.getHeaders();
     if (!mounted) return;
@@ -797,15 +795,29 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
         url,
         headers: headers,
         body: jsonEncode({
-          'container_id': containerId,
+          'container_id': targetContainerId,
           'position': newPosition,
         }),
       );
+
       if (!mounted) return;
 
-      if (response.statusCode == 200 || response.statusCode == 204) {
-        // Nach dem Verschieben laden wir das Board neu, um den neuen Status anzuzeigen
-        await fetchBoardData(showLoader: false);
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+
+        // SOFORT das UI aktualisieren (ohne Neuladen des ganzen Boards)
+        setState(() {
+          for (var container in containers) {
+            final tasks = container['tasks'] as List;
+            final taskIndex = tasks.indexWhere((t) => t['id'] == taskId);
+            if (taskIndex != -1) {
+              // Status und is_ready basierend auf der Backend-Antwort anpassen
+              tasks[taskIndex]['status'] = data['new_status'];
+              tasks[taskIndex]['is_ready'] = false; // Das Häkchen wird beim Verschieben immer zurückgesetzt
+              break;
+            }
+          }
+        });
       } else {
         debugPrint('Fehler beim Verschieben: ${response.statusCode}');
       }
@@ -814,11 +826,12 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
     }
   }
 
+  // 2. Das "Bereit"-Häkchen klicken
   Future<void> _toggleTaskReady(int taskId, bool isReady) async {
     final url = Uri.parse('$apiBaseUrl/tasks/$taskId');
     final headers = await AuthService.getHeaders();
 
-    // 1. Optimistisches UI-Update (sofort anzeigen)
+    // 1. Optimistisches UI-Update
     setState(() {
       for (var container in containers) {
         final tasks = container['tasks'] as List;
@@ -831,6 +844,7 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
     });
 
     try {
+      // 2. HTTP-Call prüfen
       final response = await http.put(
         url,
         headers: headers,
@@ -838,26 +852,26 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
       );
 
       if (response.statusCode != 200) {
-        // Falls der Server einen Fehler zurückgibt, machen wir das rückgängig
-        fetchBoardData(showLoader: false);
+        fetchBoardData(showLoader: false); // Bei Fehler zurücksetzen
       }
     } catch (e) {
-      debugPrint('Fehler beim Aktualisieren von is_ready: $e');
-      fetchBoardData(showLoader: false);
+      debugPrint('Fehler beim Häkchen setzen: $e');
+      if (mounted) fetchBoardData(showLoader: false);
     }
   }
 
   Future<void> _deleteSubtask(int subtaskId) async {
     final url = Uri.parse('$apiBaseUrl/subtasks/$subtaskId');
     final headers = await AuthService.getHeaders();
-    if (!mounted) return; // 🛡️ Schutz nach await
+    if (!mounted) return;
 
     try {
-      final response = await http.get(url, headers: headers);
-      if (!mounted) return; // 🛡️ Schutz nach await
+      // WICHTIG: Hier muss http.delete stehen, nicht http.get!
+      final response = await http.delete(url, headers: headers);
+      if (!mounted) return;
 
       if (response.statusCode == 200 || response.statusCode == 204) {
-        await fetchBoardData();
+        await fetchBoardData(showLoader: false); // Aktualisiert das Board leise
         _showMessage('Teilpunkt gelöscht');
       } else {
         _showMessage('Fehler beim Löschen: ${response.statusCode}');
@@ -1013,43 +1027,16 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 2,
-        iconTheme: const IconThemeData(color: Colors.black87),
-
-        // 🧭 1. NAVIGATION (Links: Globales Menü)
-        leading: PopupMenuButton<String>(
-          tooltip: 'Navigation',
-          icon: const Icon(Icons.menu, color: Colors.black87),
-          onSelected: (value) {
-            if (value == 'home') {
-              Navigator.pushAndRemoveUntil(
-                context,
-                MaterialPageRoute(builder: (_) => const ProjectGridScreen()),
-                (route) => false,
-              );
-            } else if (value == 'dashboard') {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const UserDashboardScreen()),
-              );
-            } else if (value == 'profile') {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const ProfileScreen()),
-              );
-            } else if (value == 'group_management') {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => GroupManagementScreen(
-                    apiBaseUrl:
-                        apiBaseUrl, // 👈 Nur noch die apiBaseUrl übergeben
-                  ),
-                ),
-              );
-            } else if (value == 'info') {
+      backgroundColor: Colors.grey.shade50,
+      // ==================== EINHEITLICHE NAVIGATION ====================
+      appBar: AppNavigationBar(
+        currentRoute: '/project-detail',
+        actions: [
+          // 1. Projekt-Info
+          IconButton(
+            tooltip: 'Projekt-Info & Dateien',
+            icon: const Icon(Icons.info_outline, color: Colors.blue),
+            onPressed: () {
               final projectData = {
                 'id': widget.projectId,
                 'name': widget.projectName,
@@ -1062,64 +1049,13 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
                     apiBaseUrl: apiBaseUrl,
                   ),
                 ),
-              );
-            }
-          },
-          itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
-            // 👥 NEU IM MENÜ: Von überall erreichbar
-            const PopupMenuItem<String>(
-              value: 'group_management',
-              child: ListTile(
-                leading: Icon(Icons.group_outlined, color: Colors.blue),
-                title: Text('Gruppe & Mitglieder verwalten'),
-              ),
-            ),
-            const PopupMenuDivider(),
-            const PopupMenuItem<String>(
-              value: 'info',
-              child: ListTile(
-                leading: Icon(Icons.info_outline, color: Colors.blue),
-                title: Text('Projekt-Info & Dateien'),
-              ),
-            ),
-            const PopupMenuDivider(),
-            const PopupMenuItem<String>(
-              value: 'home',
-              child: ListTile(
-                leading: Icon(Icons.grid_view_rounded),
-                title: Text('Projekte (Home)'),
-              ),
-            ),
-            const PopupMenuItem<String>(
-              value: 'dashboard',
-              child: ListTile(
-                leading: Icon(
-                  Icons.dashboard_outlined,
-                  color: Colors.deepOrange,
-                ),
-                title: Text('Dashboard'),
-              ),
-            ),
-            const PopupMenuItem<String>(
-              value: 'profile',
-              child: ListTile(
-                leading: Icon(Icons.person_outline, color: Colors.purple),
-                title: Text('Mein Profil'),
-              ),
-            ),
-          ],
-        ),
-
-        title: Text(
-          widget.projectName,
-          style: const TextStyle(
-            color: Colors.black87,
-            fontWeight: FontWeight.bold,
+              ).then(
+                (_) => fetchBoardData(showLoader: false),
+              ); // Daten neu laden nach Rückkehr
+            },
           ),
-        ),
 
-        // ⚙️ 2. FUNKTIONALE BUTTONS (Rechts: Nur noch Reorder, Chat, Refresh - Kein Invite-Button mehr hier!)
-        actions: [
+          // 2. Spalten ordnen (Reorder-Modus)
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 8.0),
             child: Container(
@@ -1144,18 +1080,14 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
                 ),
                 onPressed: () async {
                   if (_isReorderMode) {
-                    setState(() {
-                      _isReorderMode = false;
-                    });
+                    setState(() => _isReorderMode = false);
                     final currentContainers = List.from(containers);
-
                     for (int i = 0; i < currentContainers.length; i++) {
                       final container =
                           currentContainers[i] as Map<String, dynamic>;
                       final containerId = int.tryParse(
                         container['id']?.toString() ?? '',
                       );
-
                       if (containerId != null) {
                         try {
                           await _updateContainerPosition(containerId, i);
@@ -1166,74 +1098,38 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
                         }
                       }
                     }
-                    if (mounted) {
-                      await fetchBoardData(showLoader: false);
-                    }
+                    if (mounted) await fetchBoardData(showLoader: false);
                   } else {
-                    setState(() {
-                      _isReorderMode = true;
-                    });
+                    setState(() => _isReorderMode = true);
                   }
                 },
               ),
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 8.0),
-            child: Container(
-              decoration: BoxDecoration(
-                color: Colors.grey.shade100,
-                shape: BoxShape.circle,
-                border: Border.all(color: Colors.grey.shade300, width: 1),
-              ),
-              child: IconButton(
-                tooltip: 'Projekt-Chat',
-                icon: const Icon(Icons.forum, size: 20, color: Colors.indigo),
-                onPressed: () {
-                  showModalBottomSheet(
-                    context: context,
-                    isScrollControlled: true,
-                    shape: const RoundedRectangleBorder(
-                      borderRadius: BorderRadius.vertical(
-                        top: Radius.circular(20),
-                      ),
-                    ),
-                    builder: (_) => ChatSheet(
-                      targetId: widget.projectId,
-                      targetType: 'Project',
-                      targetName: widget.projectName,
-                    ),
-                  );
-                },
-              ),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.only(
-              left: 4.0,
-              right: 12.0,
-              top: 8.0,
-              bottom: 8.0,
-            ),
-            child: Container(
-              decoration: BoxDecoration(
-                color: Colors.grey.shade100,
-                shape: BoxShape.circle,
-                border: Border.all(color: Colors.grey.shade300, width: 1),
-              ),
-              child: IconButton(
-                tooltip: 'Aktualisieren',
-                icon: const Icon(
-                  Icons.refresh,
-                  size: 20,
-                  color: Colors.black87,
+
+          // 3. Projekt-Chat
+          IconButton(
+            tooltip: 'Projekt-Chat',
+            icon: const Icon(Icons.forum, color: Colors.indigo),
+            onPressed: () {
+              showModalBottomSheet(
+                context: context,
+                isScrollControlled: true,
+                shape: const RoundedRectangleBorder(
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
                 ),
-                onPressed: () => fetchBoardData(showLoader: true),
-              ),
-            ),
+                builder: (_) => ChatSheet(
+                  targetId: widget.projectId,
+                  targetType: 'Project',
+                  targetName: widget.projectName,
+                ),
+              );
+            },
           ),
+          const SizedBox(width: 8), // Abstand zum rechten Rand
         ],
       ),
+      // =================================================================
       body: _buildBoardBody(),
     );
   }
