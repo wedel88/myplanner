@@ -1,4 +1,5 @@
 import 'package:material_ui/material_ui.dart';
+import 'package:task_frontend/main.dart';
 
 import '../screens/project_grid_screen.dart';
 import '../screens/user_dashboard_screen.dart';
@@ -78,9 +79,8 @@ class AppNavigationBar extends StatelessWidget implements PreferredSizeWidget {
                 () => Navigator.pushReplacement(
                   context,
                   MaterialPageRoute(
-                    builder: (_) => const GroupManagementScreen(
-                      apiBaseUrl: 'http://127.0.0.1:8000/api',
-                    ),
+                    builder: (_) =>
+                        const GroupManagementScreen(apiBaseUrl: '$apiBaseUrl'),
                   ),
                 ),
               ),

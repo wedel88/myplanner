@@ -23,6 +23,7 @@ class _UserDashboardScreenState extends State<UserDashboardScreen> {
   List<dynamic> _projects = [];
   List<dynamic> _groups = [];
   int? _currentUserId;
+  bool _hideCompletedInList = false;
 
   // Filter-Variablen
   int? _selectedProjectId;
@@ -41,13 +42,17 @@ class _UserDashboardScreenState extends State<UserDashboardScreen> {
   }
 
   Future<void> _fetchDashboardData() async {
-    setState(() => _isLoading = true);
+    if (mounted)
+      setState(() => _isLoading = true); // Prüfen vor dem ersten setState
+
     try {
       final headers = await AuthService.getHeaders();
       final response = await http.get(
         Uri.parse('$apiBaseUrl/dashboard/tasks'),
         headers: headers,
       );
+
+      if (!mounted) return; // Prüfen NACH der asynchronen Anfrage!
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -63,7 +68,7 @@ class _UserDashboardScreenState extends State<UserDashboardScreen> {
       }
     } catch (e) {
       debugPrint('Fehler beim Laden des Dashboards: $e');
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false); // Prüfen im Catch-Block
     }
   }
 
@@ -426,8 +431,13 @@ class _UserDashboardScreenState extends State<UserDashboardScreen> {
 
   // ==================== WIDGETS FÜR DIE ZEITLINIE ====================
 
-  Widget _buildTaskList() {
-    if (_filteredTasks.isEmpty) {
+  Widget _buildTaskList({bool showCompleted = true}) {
+    // 1. Aufgaben filtern (je nach Einstellung)
+    final listToShow = showCompleted
+        ? _filteredTasks
+        : _filteredTasks.where((t) => t['status'] != 'completed').toList();
+
+    if (listToShow.isEmpty) {
       return const Padding(
         padding: EdgeInsets.all(32.0),
         child: Center(
@@ -442,9 +452,10 @@ class _UserDashboardScreenState extends State<UserDashboardScreen> {
     return ListView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      itemCount: _filteredTasks.length,
+      itemCount: listToShow.length, // <-- Nutzt die gefilterte Liste
       itemBuilder: (context, index) {
-        final task = _filteredTasks[index];
+        final task = listToShow[index]; // <-- Nutzt die gefilterte Liste
+        // ... (Der Rest deiner Card-Logik bleibt komplett gleich!)
         final isCompleted = task['status'] == 'completed';
         final isOverdue =
             !isCompleted &&
@@ -753,15 +764,46 @@ class _UserDashboardScreenState extends State<UserDashboardScreen> {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  const Text(
-                                    'Anstehende Aufgaben',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 18,
-                                    ),
+                                  // Header mit Toggle-Button
+                                  Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      const Text(
+                                        'Anstehende Aufgaben',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 18,
+                                        ),
+                                      ),
+                                      // NEU: Der Toggle-Button
+                                      IconButton(
+                                        tooltip: _hideCompletedInList
+                                            ? 'Erledigte anzeigen'
+                                            : 'Erledigte ausblenden',
+                                        icon: Icon(
+                                          _hideCompletedInList
+                                              ? Icons.visibility_off_outlined
+                                              : Icons.visibility_outlined,
+                                          color: _hideCompletedInList
+                                              ? Colors.grey
+                                              : Colors.blue,
+                                        ),
+                                        onPressed: () {
+                                          setState(
+                                            () => _hideCompletedInList =
+                                                !_hideCompletedInList,
+                                          );
+                                        },
+                                      ),
+                                    ],
                                   ),
                                   const SizedBox(height: 12),
-                                  _buildTaskList(),
+
+                                  // Die Liste (gefiltert, wenn _hideCompletedInList true ist)
+                                  _buildTaskList(
+                                    showCompleted: !_hideCompletedInList,
+                                  ),
                                 ],
                               ),
                             ),
@@ -798,8 +840,29 @@ class _UserDashboardScreenState extends State<UserDashboardScreen> {
                                 fontSize: 18,
                               ),
                             ),
+                            IconButton(
+                              tooltip: _hideCompletedInList
+                                  ? 'Erledigte anzeigen'
+                                  : 'Erledigte ausblenden',
+                              icon: Icon(
+                                _hideCompletedInList
+                                    ? Icons.visibility_off_outlined
+                                    : Icons.visibility_outlined,
+                                color: _hideCompletedInList
+                                    ? Colors.grey
+                                    : Colors.blue,
+                              ),
+                              onPressed: () {
+                                setState(
+                                  () => _hideCompletedInList =
+                                      !_hideCompletedInList,
+                                );
+                              },
+                            ),
                             const SizedBox(height: 12),
-                            _buildTaskList(),
+                            _buildTaskList(
+                              showCompleted: !_hideCompletedInList,
+                            ),
                             const SizedBox(height: 32),
                             const Text(
                               'Zeitplan',

@@ -120,9 +120,29 @@ class ProjectController extends Controller
             'description' => 'nullable|string',
             'sort_order' => 'sometimes|integer',
             'group_id' => 'nullable|exists:groups,id',
+            'is_template' => 'sometimes|boolean', // <-- NEU
+            'due_at' => 'nullable|date',          // <-- NEU
         ]);
 
+        // Prüfen, ob sich die Deadline geändert hat
+        $newDueDate = $validated['due_at'] ?? null;
+        $oldDueDate = $project->due_at;
+
         $project->update($validated);
+
+        // NEU: Wenn die Deadline geändert wurde, aktualisiere alle OFFENEN Tasks dieses Projekts
+        if ($newDueDate !== $oldDueDate) {
+            // Wir holen uns alle Tasks, die zu den Containern dieses Projekts gehören
+            $taskIds = \App\Models\Task::whereHas('container', function ($q) use ($project) {
+                $q->where('project_id', $project->id);
+            })
+                // Nur Aufgaben, die noch nicht erledigt oder abgebrochen sind
+                ->whereNotIn('status', ['completed', 'closed_incomplete'])
+                ->pluck('id');
+
+            // Update alle diese Tasks auf die neue Deadline
+            \App\Models\Task::whereIn('id', $taskIds)->update(['due_at' => $newDueDate]);
+        }
 
         return response()->json([
             'message' => 'Projekt erfolgreich aktualisiert!',
@@ -151,7 +171,9 @@ class ProjectController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'description' => 'nullable|string',
-            'group_id' => 'nullable|exists:groups,id', // 👈 HIER HINZUFÜGEN
+            'group_id' => 'nullable|exists:groups,id',
+            'is_template' => 'sometimes|boolean', // <-- NEU
+            'due_at' => 'nullable|date',          // <-- NEU
         ]);
 
         // Projekt für den aktuellen User erstellen (inklusive group_id falls mitgeschickt)
@@ -278,12 +300,83 @@ class ProjectController extends Controller
     // Archiviert ein Projekt
     public function archive(Project $project)
     {
-        // Optional: Prüfen, ob der User das Projekt besitzt
-        if ($project->user_id !== auth()->id()) {
-            return response()->json(['message' => 'Nur der Ersteller kann das Projekt archivieren.'], 403);
+        $user = auth()->user();
+        $hasAccess = false;
+
+        // 1. Ist der User der Ersteller (Besitzer) des Projekts?
+        if ($project->user_id === $user->id) {
+            $hasAccess = true;
+        }
+        // 2. Wenn nicht, prüfen wir, ob das Projekt zu einer Gruppe gehört, 
+        //    in der der User Mitglied ist (oder Admin/PO).
+        elseif ($project->group_id !== null) {
+            $groupRole = $project->group->users()
+                ->where('user_id', $user->id)
+                ->first()?->pivot->role;
+
+            // Erlaube es, wenn der User ein Admin oder Product Owner in der Gruppe ist
+            if (in_array($groupRole, ['admin', 'product_owner'])) {
+                $hasAccess = true;
+            }
+        }
+
+        if (!$hasAccess) {
+            return response()->json(['message' => 'Keine Berechtigung: Du bist weder der Ersteller, noch Admin/PO der Gruppe.'], 403);
         }
 
         $project->update(['is_archived' => true]);
         return response()->json(['message' => 'Projekt erfolgreich archiviert.']);
+    }
+    // 1. Vorlagen auflisten
+    public function templates()
+    {
+        $templates = Project::where('is_template', true)->with('containers.tasks')->get();
+        return response()->json($templates, 200);
+    }
+
+    // 2. Ein Projekt als Vorlage markieren
+    public function markAsTemplate(Project $project)
+    {
+        $project->update(['is_template' => true]);
+        return response()->json(['message' => 'Projekt ist jetzt eine Vorlage.']);
+    }
+
+    // 3. Neues Projekt aus einer Vorlage erstellen
+    public function storeFromTemplate(Request $request)
+    {
+        $validated = $request->validate([
+            'template_id' => 'required|exists:projects,id',
+            'name' => 'required|string|max:255',
+        ]);
+
+        $template = Project::with('containers.tasks')->findOrFail($validated['template_id']);
+
+        // Neues Projekt erstellen
+        $newProject = auth()->user()->projects()->create([
+            'name' => $validated['name'],
+            'description' => 'Erstellt aus Vorlage: ' . $template->name,
+            'is_template' => false,
+        ]);
+        $newProject->users()->attach(auth()->id());
+
+        // Struktur kopieren (Spalten und Tasks)
+        foreach ($template->containers as $container) {
+            $newContainer = $newProject->containers()->create([
+                'name' => $container->name,
+                'position' => $container->position,
+                'force_status' => $container->force_status,
+            ]);
+
+            foreach ($container->tasks as $task) {
+                $newContainer->tasks()->create([
+                    'title' => $task->title,
+                    'description' => $task->description,
+                    'status' => 'open', // Neue Tasks starten immer als 'open'
+                    'position' => $task->position,
+                ]);
+            }
+        }
+
+        return response()->json(['message' => 'Projekt aus Vorlage erstellt!', 'data' => $newProject], 201);
     }
 }

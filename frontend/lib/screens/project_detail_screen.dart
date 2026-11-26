@@ -29,6 +29,7 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
   List<dynamic> containers = [];
   bool isLoading = true;
   bool _isReorderMode = false;
+  bool _hideCompletedTasks = false;
   String errorMessage = '';
 
   @override
@@ -920,6 +921,25 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 IconButton(
+                                  tooltip: _hideCompletedTasks
+                                      ? 'Erledigte anzeigen'
+                                      : 'Erledigte ausblenden',
+                                  icon: Icon(
+                                    _hideCompletedTasks
+                                        ? Icons.visibility_off_outlined
+                                        : Icons.visibility_outlined,
+                                    color: _hideCompletedTasks
+                                        ? Colors.grey
+                                        : Colors.blue,
+                                  ),
+                                  onPressed: () {
+                                    setState(() {
+                                      _hideCompletedTasks =
+                                          !_hideCompletedTasks;
+                                    });
+                                  },
+                                ),
+                                IconButton(
                                   icon: const Icon(
                                     Icons.edit,
                                     size: 18,
@@ -1032,6 +1052,23 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
       appBar: AppNavigationBar(
         currentRoute: '/project-detail',
         actions: [
+          // NEU: Button zum Ausblenden der erledigten Aufgaben
+          IconButton(
+            tooltip: _hideCompletedTasks
+                ? 'Erledigte anzeigen'
+                : 'Erledigte ausblenden',
+            icon: Icon(
+              _hideCompletedTasks
+                  ? Icons.visibility_off_outlined
+                  : Icons.visibility_outlined,
+              color: _hideCompletedTasks ? Colors.grey : Colors.blue,
+            ),
+            onPressed: () {
+              setState(() {
+                _hideCompletedTasks = !_hideCompletedTasks;
+              });
+            },
+          ),
           // 1. Projekt-Info
           IconButton(
             tooltip: 'Projekt-Info & Dateien',
@@ -1210,12 +1247,19 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
     final container = containers[index] as Map<String, dynamic>;
     final containerId = int.tryParse(container['id']?.toString() ?? '') ?? 0;
 
+    Map<String, dynamic> filteredContainer = Map.from(container);
+    if (_hideCompletedTasks) {
+      filteredContainer['tasks'] = (container['tasks'] as List).where((task) {
+        return task['status'] != 'completed';
+      }).toList();
+    }
+
     final kanbanWidget = ReorderableDragStartListener(
       index: index,
       enabled: isReorderable,
       child: KanbanContainerWidget(
         key: ValueKey('container_$containerId'),
-        container: container,
+        container: filteredContainer,
         index: index,
         isReorderable: isReorderable,
         isReorderMode: isReorderable,

@@ -104,5 +104,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/groups/{group}/projects/assign', [GroupController::class, 'assignProject']);
     Route::delete('/groups/{group}/projects/{project}', [GroupController::class, 'removeProject']);
     Route::apiResource('groups', GroupController::class);
+    //Templates
+    Route::get('/templates', [ProjectController::class, 'templates']);
+Route::post('/projects/{project}/mark-template', [ProjectController::class, 'markAsTemplate']);
+Route::post('/projects/from-template', [ProjectController::class, 'storeFromTemplate']);
 
 });

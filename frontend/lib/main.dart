@@ -9,6 +9,7 @@ import '/screens/user_dashboard_screen.dart';
 // WICHTIG: Kein flutter_localizations Import mehr!
 
 const String apiBaseUrl = 'http://127.0.0.1:8000/api';
+const String storageBaseUrl = 'http://127.0.0.1:8000/storage';
 
 void main() {
   runApp(const MyPlannerApp());

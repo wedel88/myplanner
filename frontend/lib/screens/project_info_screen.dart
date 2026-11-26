@@ -6,6 +6,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:http/http.dart' as http;
 import 'package:web/web.dart' as web;
 
+import '../main.dart';
 import '../services/auth_service.dart';
 import '../widgets/project_chat_sheet.dart';
 import '../widgets/project_files_dialog.dart';
@@ -53,6 +54,13 @@ class _ProjectInfoScreenState extends State<ProjectInfoScreen>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
+  }
+
+  String _formatDate(String? dateString) {
+    if (dateString == null || dateString.isEmpty) return 'Nicht gesetzt';
+    final date = DateTime.tryParse(dateString);
+    if (date == null) return 'Ungültiges Datum';
+    return "${date.day.toString().padLeft(2, '0')}.${date.month.toString().padLeft(2, '0')}.${date.year}";
   }
 
   @override
@@ -436,6 +444,111 @@ class _ProjectInfoScreenState extends State<ProjectInfoScreen>
 
                       const Divider(height: 40),
 
+                      //========DEADLINE========
+                      const SizedBox(height: 24),
+                      const Text(
+                        'Projekt-Deadline',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 15,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      InkWell(
+                        onTap: () async {
+                          final picked = await showDatePicker(
+                            context: context,
+                            initialDate: _currentProject['due_at'] != null
+                                ? DateTime.parse(_currentProject['due_at'])
+                                : DateTime.now(),
+                            firstDate: DateTime(2020),
+                            lastDate: DateTime(2100),
+                          );
+                          if (picked != null) {
+                            final headers = await AuthService.getHeaders();
+                            await http.put(
+                              Uri.parse(
+                                '${widget.apiBaseUrl}/projects/${_currentProject['id']}',
+                              ),
+                              headers: headers,
+                              body: json.encode({
+                                'due_at': picked.toIso8601String(),
+                              }),
+                            );
+                            _fetchProjectDetails(); // Daten neu laden
+                          }
+                        },
+                        child: Builder(
+                          builder: (context) {
+                            final dueAtString = _currentProject['due_at'];
+                            Color bgColor = Colors.white;
+                            Color iconColor = Colors.grey.shade600;
+                            Color textColor = Colors.grey.shade800;
+
+                            if (dueAtString != null) {
+                              final dueDate = DateTime.parse(dueAtString);
+                              final now = DateTime.now();
+                              final difference = dueDate.difference(now).inDays;
+
+                              if (difference < 0) {
+                                bgColor = Colors.red.shade50;
+                                iconColor = Colors.red.shade700;
+                                textColor = Colors.red.shade800;
+                              } else if (difference <= 14) {
+                                bgColor = Colors.orange.shade50;
+                                iconColor = Colors.orange.shade800;
+                                textColor = Colors.orange.shade900;
+                              } else {
+                                bgColor = Colors.grey.shade100;
+                                iconColor = Colors.grey.shade700;
+                                textColor = Colors.grey.shade800;
+                              }
+                            }
+
+                            return Container(
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: bgColor,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: dueAtString != null
+                                      ? iconColor.withOpacity(0.3)
+                                      : Colors.grey.shade200,
+                                ),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.calendar_today,
+                                    color: iconColor,
+                                    size: 20,
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Text(
+                                    dueAtString != null
+                                        ? _formatDate(dueAtString)
+                                        : 'Keine Deadline (Klicken zum Setzen)',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      color: textColor,
+                                      fontWeight: dueAtString != null
+                                          ? FontWeight.w600
+                                          : FontWeight.normal,
+                                    ),
+                                  ),
+                                  const Spacer(),
+                                  const Icon(
+                                    Icons.edit,
+                                    size: 16,
+                                    color: Colors.grey,
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+
                       // ==================== DATEIANHÄNGE ====================
                       const Text(
                         'Dateianhänge (Projekt & Tasks)',
@@ -503,7 +616,7 @@ class _ProjectInfoScreenState extends State<ProjectInfoScreen>
                                   final file = allFiles[index];
                                   final fileName = file['file_name'] ?? 'Datei';
                                   final fileUrl =
-                                      'http://127.0.0.1:8000/storage/${file['file_path']}';
+                                      '$storageBaseUrl/${file['file_path']}';
                                   final isTaskFile = file['task_id'] != null;
                                   final taskTitle = file['task_title'];
 

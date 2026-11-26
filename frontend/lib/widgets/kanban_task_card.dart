@@ -275,22 +275,41 @@ class _KanbanTaskCardState extends State<KanbanTaskCard> {
                     ],
                   ),
 
-                  // NEU: Das "Bereit"-Häkchen
-                  if (widget.forceStatus != null)
-                    InkWell(
-                      onTap: () => widget.onToggleReady(taskId, !isReady),
-                      borderRadius: BorderRadius.circular(20),
-                      child: Padding(
-                        padding: const EdgeInsets.all(4.0),
-                        child: Icon(
-                          isReady
-                              ? Icons.check_circle
-                              : Icons.radio_button_unchecked,
-                          color: isReady ? Colors.green : Colors.grey.shade400,
-                          size: 22,
+                  // Rechts: Wiederholungs-Icon + Bereit-Häkchen
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // NEU: Das Wiederholungs-Icon
+                      if (task['recurrence'] != null &&
+                          task['recurrence'] != 'none') ...[
+                        Icon(
+                          Icons.repeat,
+                          size: 16,
+                          color: Colors.purple.shade400,
                         ),
-                      ),
-                    ),
+                        const SizedBox(width: 8),
+                      ],
+
+                      // Das "Bereit"-Häkchen
+                      if (widget.forceStatus != null)
+                        InkWell(
+                          onTap: () => widget.onToggleReady(taskId, !isReady),
+                          borderRadius: BorderRadius.circular(20),
+                          child: Padding(
+                            padding: const EdgeInsets.all(4.0),
+                            child: Icon(
+                              isReady
+                                  ? Icons.check_circle
+                                  : Icons.radio_button_unchecked,
+                              color: isReady
+                                  ? Colors.green
+                                  : Colors.grey.shade400,
+                              size: 22,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
                 ],
               ),
             ],

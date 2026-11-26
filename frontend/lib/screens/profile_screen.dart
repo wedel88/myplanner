@@ -5,6 +5,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 
+import '../main.dart';
 import '../services/auth_service.dart';
 import '../widgets/app_navigation_bar.dart';
 
@@ -41,7 +42,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     try {
       final headers = await AuthService.getHeaders();
       final response = await http.get(
-        Uri.parse('http://127.0.0.1:8000/api/me'),
+        Uri.parse('$apiBaseUrl/me'),
         headers: headers,
       );
 
@@ -136,7 +137,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     try {
       final headers = await AuthService.getHeaders();
       final response = await http.put(
-        Uri.parse('http://127.0.0.1:8000/api/profile'),
+        Uri.parse('$apiBaseUrl/profile'),
         headers: headers,
         body: json.encode({
           'name': _nameController.text,
@@ -213,7 +214,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
       var request = http.MultipartRequest(
         'POST',
-        Uri.parse('http://127.0.0.1:8000/api/profile/avatar'),
+        Uri.parse('$apiBaseUrl/profile/avatar'),
       );
       request.headers.addAll(headers);
       request.files.add(
@@ -304,7 +305,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final bool isDesktop = MediaQuery.of(context).size.width > 800;
 
     final userAvatarUrl = _userData['avatar'] != null
-        ? 'http://127.0.0.1:8000/api/${_userData['avatar']}'
+        ? '$apiBaseUrl/${_userData['avatar']}'
         : null;
 
     return Scaffold(

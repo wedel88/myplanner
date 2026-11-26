@@ -325,7 +325,7 @@ class _ChatSheetState extends State<ChatSheet> {
         final avatarUrl = cleanedAvatarPath.isNotEmpty
             ? (cleanedAvatarPath.startsWith('http')
                   ? cleanedAvatarPath
-                  : 'http://127.0.0.1:8000/api/$cleanedAvatarPath')
+                  : '$apiBaseUrl/$cleanedAvatarPath')
             : null;
 
         List attachmentsList = [];
@@ -452,7 +452,7 @@ class _ChatSheetState extends State<ChatSheet> {
                           child: InkWell(
                             onTap: () {
                               final fileUrl =
-                                  'http://127.0.0.1:8000/storage/${att['file_path']}';
+                                  '$storageBaseUrl/${att['file_path']}';
                               web.window.open(fileUrl, '_blank');
                             },
                             child: Container(

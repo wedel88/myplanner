@@ -21,6 +21,8 @@ class Task extends Model
         'planned_end_at',
         'due_at',
         'position',
+        'recurrence',
+        'recurrence_parent_id',
     ];
     protected $casts = [
         'due_at' => 'datetime',

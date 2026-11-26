@@ -253,8 +253,7 @@ class _ProjectFilesDialogState extends State<ProjectFilesDialog> {
                           ),
                           tooltip: 'Herunterladen',
                           onPressed: () {
-                            final fileUrl =
-                                'http://127.0.0.1:8000/storage/$filePath';
+                            final fileUrl = '$storageBaseUrl/$filePath';
                             web.window.open(fileUrl, '_blank');
                           },
                         ),

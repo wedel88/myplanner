@@ -631,6 +631,58 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                   ),
 
                   const Divider(height: 40, color: Colors.transparent),
+                  // ==================== NEU: WIEDERHOLUNG ====================
+                  _buildSectionTitle('Wiederholung'),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.grey.shade200),
+                    ),
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<String>(
+                        value: _task['recurrence'] ?? 'none',
+                        isExpanded: true,
+                        icon: const Icon(Icons.repeat, color: Colors.blue),
+                        style: const TextStyle(
+                          fontSize: 14,
+                          color: Colors.black87,
+                        ),
+                        items: const [
+                          DropdownMenuItem(
+                            value: 'none',
+                            child: Text('Keine (Einmalig)'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'daily',
+                            child: Text('Täglich'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'weekly',
+                            child: Text('Wöchentlich'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'monthly',
+                            child: Text('Monatlich'),
+                          ),
+                        ],
+                        onChanged: (val) {
+                          if (val != null) {
+                            setState(() => _task['recurrence'] = val);
+                            _saveField(
+                              'recurrence',
+                              val,
+                            ); // Speichert es sofort im Backend
+                          }
+                        },
+                      ),
+                    ),
+                  ),
+                  const Divider(height: 40, color: Colors.transparent),
 
                   // ==================== 4. SUBTASKS ====================
                   _buildSectionTitle('Teilpunkte (Subtasks)'),
@@ -797,7 +849,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                               final fileName =
                                   attachment['file_name'] ?? 'Datei';
                               final fileUrl =
-                                  'http://127.0.0.1:8000/storage/${attachment['file_path']}';
+                                  '$storageBaseUrl/${attachment['file_path']}';
                               return Padding(
                                 padding: const EdgeInsets.only(bottom: 8.0),
                                 child: Row(

@@ -3,6 +3,7 @@ import 'package:material_ui/material_ui.dart';
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
+import 'package:task_frontend/main.dart';
 
 import '../services/auth_service.dart';
 import '../widgets/app_navigation_bar.dart';
@@ -18,7 +19,7 @@ class ArchivedProjectsScreen extends StatefulWidget {
 class _ArchivedProjectsScreenState extends State<ArchivedProjectsScreen> {
   List<dynamic> _archivedProjects = [];
   bool _isLoading = true;
-  final String baseUrl = 'http://127.0.0.1:8000/api';
+  final String baseUrl = '$apiBaseUrl';
 
   @override
   void initState() {

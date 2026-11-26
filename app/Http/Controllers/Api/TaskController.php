@@ -83,6 +83,13 @@ class TaskController extends Controller
         if (!isset($validated['is_ready'])) {
             $validated['is_ready'] = false;
         }
+        if (!isset($validated['due_at'])) {
+            $projectId = $container->project_id;
+            $project = \App\Models\Project::find($projectId);
+            if ($project && $project->due_at) {
+                $validated['due_at'] = $project->due_at;
+            }
+        }
 
         $task = Task::create($validated);
 
@@ -123,6 +130,8 @@ class TaskController extends Controller
             'planned_end_at' => 'nullable|date',
             'due_at' => 'nullable|date',
             'assigned_user_id' => 'nullable|exists:users,id',
+            'recurrence' => 'sometimes|string|in:none,daily,weekly,monthly', // <-- NEU
+
         ]);
 
         $task->update($validated);
