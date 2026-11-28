@@ -130,8 +130,9 @@ class TaskController extends Controller
             'planned_end_at' => 'nullable|date',
             'due_at' => 'nullable|date',
             'assigned_user_id' => 'nullable|exists:users,id',
-            'recurrence' => 'sometimes|string|in:none,daily,weekly,monthly', // <-- NEU
-
+            'recurrence' => 'sometimes|string|in:none,daily,weekly,monthly',
+            'recurrence_day_of_week' => 'nullable|integer|between:1,7',
+            'recurrence_day_of_month' => 'nullable|integer|between:1,31',
         ]);
 
         $task->update($validated);

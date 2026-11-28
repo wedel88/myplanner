@@ -23,6 +23,8 @@ class Task extends Model
         'position',
         'recurrence',
         'recurrence_parent_id',
+        'recurrence_day_of_week',
+        'recurrence_day_of_month',
     ];
     protected $casts = [
         'due_at' => 'datetime',

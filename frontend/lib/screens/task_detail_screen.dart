@@ -41,6 +41,8 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
   DateTime? _selectedStartDate;
   DateTime? _selectedEndDate;
   int? _selectedUserId;
+  int? _recurrenceDayOfWeek;
+  int? _recurrenceDayOfMonth;
 
   late TextEditingController _newSubtaskController;
 
@@ -61,6 +63,8 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     _selectedEndDate = _task['planned_end_at'] != null
         ? DateTime.tryParse(_task['planned_end_at'])
         : null;
+    _recurrenceDayOfWeek = _task['recurrence_day_of_week'];
+    _recurrenceDayOfMonth = _task['recurrence_day_of_month'];
 
     _fetchProjectUsers();
     _fetchTaskDetails();
@@ -632,6 +636,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
 
                   const Divider(height: 40, color: Colors.transparent),
                   // ==================== NEU: WIEDERHOLUNG ====================
+                  // ==================== NEU: WIEDERHOLUNG ====================
                   _buildSectionTitle('Wiederholung'),
                   Container(
                     padding: const EdgeInsets.symmetric(
@@ -643,46 +648,133 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(color: Colors.grey.shade200),
                     ),
-                    child: DropdownButtonHideUnderline(
-                      child: DropdownButton<String>(
-                        value: _task['recurrence'] ?? 'none',
-                        isExpanded: true,
-                        icon: const Icon(Icons.repeat, color: Colors.blue),
-                        style: const TextStyle(
-                          fontSize: 14,
-                          color: Colors.black87,
+                    child: Column(
+                      children: [
+                        // 1. Dropdown für die Wiederholungsrate
+                        DropdownButtonHideUnderline(
+                          child: DropdownButton<String>(
+                            value: _task['recurrence'] ?? 'none',
+                            isExpanded: true,
+                            icon: const Icon(Icons.repeat, color: Colors.blue),
+                            style: const TextStyle(
+                              fontSize: 14,
+                              color: Colors.black87,
+                            ),
+                            items: const [
+                              DropdownMenuItem(
+                                value: 'none',
+                                child: Text('Keine (Einmalig)'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'daily',
+                                child: Text('Täglich'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'weekly',
+                                child: Text('Wöchentlich'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'monthly',
+                                child: Text('Monatlich'),
+                              ),
+                            ],
+                            onChanged: (val) {
+                              if (val != null) {
+                                setState(() => _task['recurrence'] = val);
+                                _saveField('recurrence', val);
+                              }
+                            },
+                          ),
                         ),
-                        items: const [
-                          DropdownMenuItem(
-                            value: 'none',
-                            child: Text('Keine (Einmalig)'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'daily',
-                            child: Text('Täglich'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'weekly',
-                            child: Text('Wöchentlich'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'monthly',
-                            child: Text('Monatlich'),
+
+                        // 2. Zusatz-Dropdown für Wochentag (nur bei "weekly")
+                        if (_task['recurrence'] == 'weekly') ...[
+                          const Divider(height: 1),
+                          DropdownButtonHideUnderline(
+                            child: DropdownButton<int>(
+                              value: _recurrenceDayOfWeek,
+                              hint: const Text(
+                                'Wochentag wählen',
+                                style: TextStyle(fontSize: 13),
+                              ),
+                              isExpanded: true,
+                              icon: const Icon(
+                                Icons.calendar_view_week,
+                                color: Colors.orange,
+                                size: 20,
+                              ),
+                              items: const [
+                                DropdownMenuItem(
+                                  value: 1,
+                                  child: Text('Montag'),
+                                ),
+                                DropdownMenuItem(
+                                  value: 2,
+                                  child: Text('Dienstag'),
+                                ),
+                                DropdownMenuItem(
+                                  value: 3,
+                                  child: Text('Mittwoch'),
+                                ),
+                                DropdownMenuItem(
+                                  value: 4,
+                                  child: Text('Donnerstag'),
+                                ),
+                                DropdownMenuItem(
+                                  value: 5,
+                                  child: Text('Freitag'),
+                                ),
+                                DropdownMenuItem(
+                                  value: 6,
+                                  child: Text('Samstag'),
+                                ),
+                                DropdownMenuItem(
+                                  value: 7,
+                                  child: Text('Sonntag'),
+                                ),
+                              ],
+                              onChanged: (val) {
+                                setState(() => _recurrenceDayOfWeek = val);
+                                _saveField('recurrence_day_of_week', val);
+                              },
+                            ),
                           ),
                         ],
-                        onChanged: (val) {
-                          if (val != null) {
-                            setState(() => _task['recurrence'] = val);
-                            _saveField(
-                              'recurrence',
-                              val,
-                            ); // Speichert es sofort im Backend
-                          }
-                        },
-                      ),
+
+                        // 3. Zusatz-Dropdown für Monatstag (nur bei "monthly")
+                        if (_task['recurrence'] == 'monthly') ...[
+                          const Divider(height: 1),
+                          DropdownButtonHideUnderline(
+                            child: DropdownButton<int>(
+                              value: _recurrenceDayOfMonth,
+                              hint: const Text(
+                                'Tag im Monat wählen',
+                                style: TextStyle(fontSize: 13),
+                              ),
+                              isExpanded: true,
+                              icon: const Icon(
+                                Icons.calendar_month,
+                                color: Colors.orange,
+                                size: 20,
+                              ),
+                              items: List.generate(31, (index) {
+                                return DropdownMenuItem(
+                                  value: index + 1,
+                                  child: Text('${index + 1}.'),
+                                );
+                              }),
+                              onChanged: (val) {
+                                setState(() => _recurrenceDayOfMonth = val);
+                                _saveField('recurrence_day_of_month', val);
+                              },
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                   ),
                   const Divider(height: 40, color: Colors.transparent),
+                  // ==================== ENDE WIEDERHOLUNG ====================
 
                   // ==================== 4. SUBTASKS ====================
                   _buildSectionTitle('Teilpunkte (Subtasks)'),

@@ -10,4 +10,4 @@ Artisan::command('inspire', function () {
 })->purpose('Display an inspiring quote');
 
 // Läuft jeden Tag um 00:01 Uhr
-Schedule::command('tasks:generate-recurring')->everyMinute();
+Schedule::command('tasks:generate-recurring')->dailyAt('00:01');

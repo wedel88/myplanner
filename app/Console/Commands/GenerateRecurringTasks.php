@@ -9,56 +9,79 @@ use Carbon\Carbon;
 class GenerateRecurringTasks extends Command
 {
     protected $signature = 'tasks:generate-recurring';
-    protected $description = 'Erstellt neue Kopien von wiederkehrenden Tasks';
+    protected $description = 'Erstellt täglich die fälligen wiederkehrenden Aufgaben (holt Verpasstes nach)';
 
     public function handle()
     {
-        // 1. Alle Tasks finden, die sich wiederholen, erledigt sind und noch keine Kopie für den nächsten Zeitraum haben
+        $count = 0;
+        $today = Carbon::today();
+
+        // 1. Alle "Original"-Aufgaben holen
         $recurringTasks = Task::where('recurrence', '!=', 'none')
-            ->where('status', 'completed')
+            ->whereNotNull('due_at')
+            ->whereNull('recurrence_parent_id')
             ->get();
 
-        $count = 0;
-
         foreach ($recurringTasks as $task) {
-            // Prüfen, ob es bereits eine aktive (offene) Kopie für diesen Task gibt
-            $existingCopy = Task::where('recurrence_parent_id', $task->id)
-                ->where('status', '!=', 'completed')
-                ->exists();
+            // Das ENDDATUM der Serie (bleibt immer gleich)
+            $endDate = Carbon::parse($task->due_at);
 
-            if ($existingCopy)
-                continue; // Wenn ja, überspringen
+            // Der STARTPUNKT ist der Tag, an dem die Aufgabe erstellt wurde
+            $startDate = Carbon::parse($task->created_at)->startOfDay();
 
-            // 2. Berechne das nächste Fälligkeitsdatum (basierend auf dem alten due_at)
-            $newDueDate = null;
-            if ($task->due_at) {
-                $newDueDate = Carbon::parse($task->due_at);
-                if ($task->recurrence === 'daily')
-                    $newDueDate->addDay();
-                if ($task->recurrence === 'weekly')
-                    $newDueDate->addWeek();
-                if ($task->recurrence === 'monthly')
-                    $newDueDate->addMonth();
+            // Das AKTUELLE Datum, für das wir prüfen
+            $currentDate = $startDate->copy();
+
+            // Schleife: Vom Startdatum bis HEUTE (oder bis zum Enddatum)
+            while ($currentDate->lessThanOrEqualTo($today) && $currentDate->lessThanOrEqualTo($endDate)) {
+                
+                // Prüfen, ob für DIESEN Tag schon eine Kopie existiert
+                $existingCopy = Task::where('recurrence_parent_id', $task->id)
+                                    ->whereDate('planned_start_at', $currentDate->toDateString())
+                                    ->exists();
+
+                if (!$existingCopy) {
+                    // Neue Kopie erstellen
+                    Task::create([
+                        'container_id' => $task->container_id,
+                        'title' => $task->title,
+                        'description' => $task->description,
+                        'status' => 'open',
+                        'assigned_user_id' => $task->assigned_user_id,
+                        
+                        // DAS SIND DIE WICHTIGEN ÄNDERUNGEN:
+                        'planned_start_at' => $currentDate->copy(), // Start am jeweiligen Tag
+                        'planned_end_at' => $currentDate->copy(),   // Ende am jeweiligen Tag
+                        'due_at' => $endDate->copy(),               // DEADLINE BLEIBT DAS ENDDATUM!
+                        
+                        'position' => $task->position,
+                        'recurrence' => $task->recurrence,
+                        'recurrence_parent_id' => $task->id,
+                        'recurrence_day_of_week' => $task->recurrence_day_of_week,
+                        'recurrence_day_of_month' => $task->recurrence_day_of_month,
+                    ]);
+                    $count++;
+                }
+
+                // Berechne das NÄCHSTE Datum (je nach Wiederholung)
+                if ($task->recurrence === 'daily') {
+                    $currentDate->addDay();
+                } elseif ($task->recurrence === 'weekly') {
+                    if ($task->recurrence_day_of_week) {
+                        $currentDate = $currentDate->copy()->next((int)$task->recurrence_day_of_week);
+                    } else {
+                        $currentDate->addWeek();
+                    }
+                } elseif ($task->recurrence === 'monthly') {
+                    if ($task->recurrence_day_of_month) {
+                        $currentDate = $currentDate->copy()->addMonth()->setDay((int)$task->recurrence_day_of_month);
+                    } else {
+                        $currentDate->addMonth();
+                    }
+                }
             }
-
-            // 3. Die Kopie erstellen
-            Task::create([
-                'container_id' => $task->container_id,
-                'title' => $task->title,
-                'description' => $task->description,
-                'status' => 'open', // Kopie startet immer als offen
-                'assigned_user_id' => $task->assigned_user_id,
-                'planned_start_at' => $task->planned_start_at,
-                'planned_end_at' => $task->planned_end_at,
-                'due_at' => $newDueDate,
-                'position' => $task->position,
-                'recurrence' => $task->recurrence, // Kopie wiederholt sich auch wieder
-                'recurrence_parent_id' => $task->id,
-            ]);
-
-            $count++;
         }
 
-        $this->info("$count wiederkehrende Aufgaben wurden erstellt.");
+        $this->info("$count wiederkehrende Aufgaben wurden bis heute erstellt.");
     }
 }
