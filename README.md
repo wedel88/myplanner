@@ -62,7 +62,7 @@ MyPlanner ist eine moderne, webbasierte Anwendung zur Verwaltung von Projekten, 
 * MySQL Datenbank (z.B. via Laragon oder XAMPP)
 
 ### 1. Backend (Laravel)
-```bash
+
 # Repository klonen
 git clone https://github.com/wedel88/myplanner
 cd backend
